@@ -1,0 +1,30 @@
+<DataModel AccessRight="Public=16,Pre.Est.=102,Management=1,Reading=2" MeterType="1" Model="HXF300"
+    PoolVersion="塔吉克13BJ1808173/3P CT:20190220090504" Protocol="DLMS" Version="13BJ1808173">
+    <OBIS name="COSEM logical device name" TemplateID="" classid="1" functionid="4//8"
+        obis="0-0:42.0.0.255" remark="" version="0">
+        <attribute name="logical_name" accessright="Public=R,Pre.Est.=\,Management=R,Reading=\"
+            id="1" isuse="1" relativeattribute="" remark="">
+            <item name="logical_name" coding="Hex" comments="" defvalue="" format="" remark=""
+                scaler="" size="6" type="octet_string" unit="" />
+        </attribute>
+        <attribute name="value" accessright="Public=R,Pre.Est.=\,Management=R,Reading=\" id="2"
+            isuse="1" relativeattribute="" remark="">
+            <item name="value" coding="ASCII" comments="" defvalue="" format="" remark="" scaler=""
+                size="16" type="octet_string" unit="" />
+        </attribute>
+    </OBIS>
+
+    <OBIS name="COSEM logical device name" TemplateID="" classid="7" functionid="2//8"
+        obis="1-0:42.0.0.255" remark="" version="0">
+        <attribute name="logical_name" accessright="Public=R,Pre.Est.=\,Management=R,Reading=\"
+            id="1" isuse="1" relativeattribute="" remark="">
+            <item name="logical_name" coding="Hex" comments="" defvalue="" format="" remark=""
+                scaler="" size="6" type="octet_string" unit="" />
+        </attribute>
+        <attribute name="value" accessright="Public=R,Pre.Est.=\,Management=R,Reading=\" id="2"
+            isuse="1" relativeattribute="" remark="">
+            <item name="value" coding="ASCII" comments="" defvalue="" format="" remark="" scaler=""
+                size="16" type="octet_string" unit="" />
+        </attribute>
+    </OBIS>
+</DataModel>

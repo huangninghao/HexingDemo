@@ -1,0 +1,92 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+
+    repositories {
+        google()
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.0.0'
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+        classpath 'com.novoda:bintray-release:0.8.0'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        mavenCentral()
+    }
+
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.hexing.dlms'//jcenter上的路径
+//    artifactId = 'LibHexDlms'//项目名称
+//    publishVersion = '1.2.8'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+//
+//
+////添加
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.hexing.libhexbase'//jcenter上的路径
+//    artifactId = 'LibHexBase'//项目名称
+//    publishVersion = '1.2.1'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+//
+////添加
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.dragon.bluetooth'//jcenter上的路径
+//    artifactId = 'BluetoothLibrary'//项目名称
+//    publishVersion = '1.0.0'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.hexing.download'//jcenter上的路径
+//    artifactId = 'LibHexDownoload'//项目名称
+//    publishVersion = '1.0.0'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+
+
+
+////添加
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.cbl.upgradehelper'//jcenter上的路径
+//    artifactId = 'LibGreenDaoUpgradeHelper'//项目名称
+//    publishVersion = '1.0.0'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+//./gradlew build bintrayUpload -PbintrayUser=caibinglong1987 -PbintrayKey=6a918791f1a4bbf6d8c70a285980ac91ebde1d57 -PdryRun=false
+

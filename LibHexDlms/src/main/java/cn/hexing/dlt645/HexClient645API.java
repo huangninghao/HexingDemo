@@ -1,0 +1,1992 @@
+package cn.hexing.dlt645;
+
+
+import android.os.SystemClock;
+import android.text.TextUtils;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+import cn.hexing.DeviceControl;
+import cn.hexing.HexAction;
+import cn.hexing.HexDevice;
+import cn.hexing.HexStringUtil;
+import cn.hexing.ParaConfig;
+import cn.hexing.dlms.IHexListener;
+import cn.hexing.dlms.RS232Controller;
+import cn.hexing.dlt645.check.FrameCheckerFilterTypes;
+import cn.hexing.dlt645.comm.CommOpticalSerialPort;
+import cn.hexing.dlt645.model.DayBlockBean;
+import cn.hexing.dlt645.model.EthernetBean;
+import cn.hexing.dlt645.model.GprsBean;
+import cn.hexing.dlt645.model.InstantaneousBean;
+import cn.hexing.dlt645.model.MeterRelayBean;
+import cn.hexing.dlt645.model.PrePaymentBean;
+import cn.hexing.dlt645.model.ReceiveModel;
+import cn.hexing.iComm.AbsCommAction;
+import cn.hexing.model.CommPara;
+import cn.hexing.model.HXFramePara;
+import cn.hexing.model.TranXADRAssist;
+
+
+/**
+ * @author caibinglong
+ *         date 2018/2/1.
+ *         desc desc
+ */
+
+public class HexClient645API {
+    private static HexClient645API instance;
+    private String deviceType = HexDevice.KT50;
+    private int commMethod = HexDevice.METHOD_ZIGBEE;
+    private HXFramePara framePara;
+    private AbsCommAction iComm;
+    private CommPara cPara = new CommPara();
+    private CommServer commServer;
+    private int baudRate = 9600;
+    private int nBits = 8;
+    private int nStop = 1;
+    private long sleepSend = 20;// Sleep time after send(ms)
+    private String sVerify = "N";
+    private long handWaitTime = 1200;
+    private long dataFrameWaitTime = 3000;
+    private boolean isTermination = false; //是否终止 读取obis
+    private List<IHexListener> listenerList = new ArrayList<>();
+    private String strComName;
+    private ParaConfig config;
+    private boolean debugMode = false;
+    private DeviceControl deviceControl;
+    private final static String TAG = HexClient645API.class.getSimpleName();
+    private RS232Controller rs232Controller;
+
+    public static HexClient645API getInstance() {
+        if (instance == null) {
+            instance = new HexClient645API();
+        }
+        return instance;
+    }
+
+    public static HexClient645API getInstance(ParaConfig config) {
+        return instance = new HexClient645API(config);
+    }
+
+    public HexClient645API() {
+    }
+
+    public HexClient645API(ParaConfig config) {
+        this.config = config;
+        this.deviceType = config.deviceType;
+        this.commMethod = config.commMethod;
+        this.strComName = config.strComName;
+        this.baudRate = config.baudRate;
+        this.nBits = config.nBits;
+        this.nStop = config.nStop;
+        this.sVerify = config.sVerify;
+        this.handWaitTime = config.handWaitTime;
+        this.dataFrameWaitTime = config.dataFrameWaitTime;
+        this.sleepSend = config.sleepSendTime;
+        this.debugMode = config.debugMode;
+    }
+
+    /**
+     * 设置 通讯设备 及通讯方式
+     *
+     * @param deviceType 设备类型
+     * @param commMethod 通讯方式
+     */
+    public void setDeviceMethod(String deviceType, int commMethod) {
+        this.deviceType = deviceType;
+        this.commMethod = commMethod;
+    }
+
+    public void setComName(String comName) {
+        this.strComName = comName;
+    }
+
+    /**
+     * 设置波特率
+     *
+     * @param baudRate int
+     */
+    public void setBaudRate(int baudRate) {
+        this.baudRate = baudRate;
+        if (commServer != null && iComm != null) {
+            iComm.setBaudRate(baudRate);
+        }
+    }
+
+    /**
+     * 设置 数据位 停止位
+     *
+     * @param nBits int
+     * @param nStop int
+     */
+    public void setBit(int nBits, int nStop) {
+        this.nBits = nBits;
+        this.nStop = nStop;
+    }
+
+    public void setHandWaitTime(long waitTime) {
+        this.handWaitTime = waitTime;
+    }
+
+    public void setDataFrameWaitTime(long waitTime) {
+        this.dataFrameWaitTime = waitTime;
+    }
+
+    public void initPara() throws Exception {
+        // 光电头通讯参数设置
+        iComm = new CommOpticalSerialPort();
+        commServer = new CommServer();
+        commServer.setDebugMode(this.debugMode);
+        framePara = new HXFramePara();
+
+        if (deviceType.equals(HexDevice.KT50)) {
+            switch (commMethod) {
+                case HexDevice.METHOD_ZIGBEE:
+                    iComm = new CommOpticalSerialPort();
+                    cPara.ComName = TextUtils.isEmpty(strComName) ? HexDevice.COMM_NAME_ZIGBEE : strComName;
+                    framePara.CommDeviceType = HexDevice.ZIGBEE;
+                    this.baudRate = 9600;
+                    break;
+                default:
+                    throw new NotImplementedException("通讯 " + commMethod + " 未定义");
+            }
+        } else if (deviceType.equals(HexDevice.HT380A)) {
+            //380A
+            cPara.ComName = HexDevice.COMM_NAME_SAC;
+            iComm = new CommOpticalSerialPort();
+            framePara.CommDeviceType = HexDevice.OPTICAL;
+            rs232Controller = new RS232Controller();
+        }
+
+        cPara.BRate = baudRate;
+        cPara.DBit = nBits;
+        cPara.Pty = sVerify.charAt(0);
+        cPara.Sbit = nStop;
+    }
+
+    /**
+     * 645 对外api
+     *
+     * @param tranXADRAssist TranXADRAssist
+     */
+    public void action(TranXADRAssist tranXADRAssist) throws NotImplementedException {
+        if (tranXADRAssist.c645Bean == null) {
+            throw new NotImplementedException("645 config is null");
+        }
+        if (openSerial()) {
+            List<TranXADRAssist> assists;
+            TranXADRAssist assist = tranXADRAssist.clone();
+            TranXADRAssist xadrAssist;
+            ReceiveModel model = new ReceiveModel();
+            model.maxWaitTime = assist.c645Bean.maxWaitTime;
+            int pos = 0;
+            switch (assist.c645Bean.getMeterDataType645Id()) {
+                case MeterDataTypes.CustomerSearchNetWork:
+                    assists = new ArrayList<>();
+                    //maxWaitTime 2000
+                    GlobalCommunicators.zigbeeCommandExecutor.Write("SR", new byte[0], model);
+                    System.out.println("SR action over");
+                    List<ReceiveModel> models = GlobalCommunicators.zigbeeCommandExecutor.ReadNetWork();
+                    for (ReceiveModel item : models) {
+                        xadrAssist = assist.clone();
+                        xadrAssist.recBytes = item.recBytes;
+                        xadrAssist.value = item.data;
+                        assists.add(xadrAssist);
+                    }
+                    listener.onSuccess(assists);
+                    break;
+                case MeterDataTypes.CustomerConnectCollector:
+                    //连接采集器
+                    //waitTime = 2000;
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("CustomerConnectCollector collector number is null");
+                    }
+                    assist = connectCollectorNew(assist.c645Bean.collectorNumber, model);
+                    if (assist.aResult) {
+                        listener.onSuccess(assist, 0);
+                    } else {
+                        listener.onFailure(assist.errMsg);
+                    }
+                    break;
+                case MeterDataTypes.CustomerMeterRelayStatus:
+                    //表 操作  继电器状态
+                    assists = executeReadRelay(assist.c645Bean.collectorNumber, model, assist.c645Bean.meterNumberList);
+                    listener.onSuccess(assists);
+                    break;
+                case MeterDataTypes.CustomerActionMeterRelay:
+                    String meterNo;
+                    while (assist.c645Bean.meterNumberList.size() > 0) {
+                        meterNo = assist.c645Bean.meterNumberList.get(0);
+                        if (TextUtils.isEmpty(meterNo)) {
+                            throw new NotImplementedException("CustomerActionMeterRelay meter number is null");
+                        }
+                        byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meterNo, 12, '0'));
+                        byte[] newByte = HexStringUtil.reverse(bytes);
+                        GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
+                        GlobalCommunicators.Update();
+                        model = GlobalCommunicators.c645ZigbeeMeter.Write(assist.c645Bean.relayAction ? MeterDataTypes.SwitchOn : MeterDataTypes.SwitchOff,
+                                GlobalCommunicators.MeterPasswordBytes, new byte[0], model);
+                        assist.recBytes = model.recBytes;
+                        assist.aResult = model.isSend;
+                        assist.c645Bean.meterNumberList.remove(0);
+                        listener.onSuccess(assist, pos);
+                        pos++;
+                    }
+                    break;
+                case MeterDataTypes.CustomerReadMeter:
+                    //maxWaitTime = 10*1000;
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("CustomerReadMeter collector number is null");
+                    }
+                    assist = readMeterSetupInfoNew(assist, model);
+                    if (assist.aResult) {
+                        listener.onSuccess(assist, 0);
+                    } else {
+                        listener.onFailure(assist.errMsg);
+                    }
+                    break;
+                case MeterDataTypes.CustomerExecuteSearchMeter:
+                    //maxWaitTime = 2000;
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("CustomerExecuteSearchMeter collector number is null");
+                    }
+                    GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+                    GlobalCommunicators.Update();
+                    System.out.println(TAG + "Run Meter Search Start  ...");
+                    model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.SetupMode, GlobalCommunicators.CollectorPasswordBytes, new byte[]{0x02}, model);
+                    System.out.println(TAG + "Run Meter Search end  ..." + model.isSend);
+                    assist.recBytes = model.recBytes;
+                    assist.aResult = model.isSend;
+                    listener.onSuccess(assist, 0);
+                    break;
+                case MeterDataTypes.CustomerCollGPRS:
+                    //采集器 gprs操作
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("CustomerCollGPRS collector number is null");
+                    }
+                    System.out.println(TAG + "collector gprs  ...");
+                    if (assist.actionType == HexAction.ACTION_READ) {
+                        //读gprs
+                        assist = readGPRS(assist, model);
+                    } else if (assist.actionType == HexAction.ACTION_WRITE) {
+                        //写gprs
+                        assist = writeGPRS(assist, model);
+                    }
+                    listener.onSuccess(assist, 0);
+                    break;
+                case MeterDataTypes.CustomerCollIEthernet:
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("CustomerCollIEthernet collector number is null");
+                    }
+                    //采集器 网络设置
+                    if (assist.actionType == HexAction.ACTION_READ) {
+                        //读
+                        assist = readEthernet(assist);
+                    } else if (assist.actionType == HexAction.ACTION_WRITE) {
+                        //写
+                        try {
+                            assist = writeEthernetParameters(assist, model);
+                        } catch (Exception e) {
+                            assist.errMsg = e.getMessage();
+                            e.printStackTrace();
+                        }
+                    }
+                    listener.onSuccess(assist, 0);
+                    break;
+
+                case MeterDataTypes.CustomerCollClearMeter:
+                    // 采集器  清表 操作
+                    if (TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+                        throw new NotImplementedException("collector number is null");
+                    }
+                    assist = executeCleatMeter(assist.c645Bean.collectorNumber, model);
+                    listener.onSuccess(assist, 0);
+                    break;
+
+                case MeterDataTypes.CustomerMeterDaily:
+                    assist = readDayBlock(assist, model);
+                    listener.onSuccess(assist, 0);
+                    // 表 冻结
+                    break;
+                case MeterDataTypes.CustomerMeterDailyPre:
+                    assist = readDayBlockPrePayment(assist, model);
+                    listener.onSuccess(assist, 0);
+                    //表 冻结 预付费
+                    break;
+
+                case MeterDataTypes.CustomerMeterInstantaneous:
+                    //表  瞬时量
+                    assist = readInstantaneous(assist, model);
+                    listener.onSuccess(assist, 0);
+                    break;
+
+                case MeterDataTypes.CustomerMeterPowerMode:
+                    //表  保电模式
+                    assist = ExecuteRelay(assist);
+                    listener.onSuccess(assist, 0);
+                    break;
+                case MeterDataTypes.CustomerCollPlanID:
+                    if (assist.actionType == HexAction.ACTION_READ) {
+                        //读
+                        assist = readCLTPanID(assist, model);
+                    } else if (assist.actionType == HexAction.ACTION_WRITE) {
+                        //写
+                        assist = writeCLTPanID(assist, model);
+                    }
+                    listener.onSuccess(assist, 0);
+                    break;
+                case MeterDataTypes.CustomerCollExit:
+                    assist = executeDisconnect(assist.c645Bean.collectorNumber, model);
+                    listener.onSuccess(assist, 0);
+                    break;
+                case MeterDataTypes.CustomerCOllInstallMode:
+                    assist = executeInstall(assist, model);
+                    listener.onSuccess(assist, 0);
+                    break;
+                default:
+                    throw new NotImplementedException("MeterDataTypes " + assist.c645Bean.getMeterDataType645Id() + " Undefined");
+
+            }
+            closeSerial();
+        }
+    }
+
+    /**
+     * 读取 表安装信息
+     *
+     * @param assist TranXADRAssist
+     */
+    private TranXADRAssist readMeterSetupInfoNew(TranXADRAssist assist, ReceiveModel model) {
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        System.out.println("Read MeterInfo ReadSetupInfo1" + " Start  ...");
+        model.setReadType(MeterDataTypes.ReadSetupInfo); //= -8999;//MeterDataTypes.ReadSetupInfo;
+        model.checkFilter.add(FrameCheckerFilterTypes.C645ZigbeeReceivedData);
+        model = GlobalCommunicators.c645ZigbeeCollector.Read(model);
+        assist.recBytes = model.recBytes;
+
+        assist.value = assist.c645Bean.collectorNumber;
+        if (model.isSuccess) {
+            assist.aResult = true;
+            byte[] meterList1 = model.recBytes.clone();
+            System.out.println("ReadSetupInfo2 start");
+            model.setReadType(MeterDataTypes.ReadSetupInfo2);
+            model = GlobalCommunicators.c645ZigbeeCollector.Read(model);
+            byte[] meterList2 = new byte[0];
+            if (model.isSuccess) {
+                meterList2 = model.recBytes.clone();
+            } else {
+                assist.errMsg = "8-16 meter read fail||" + model.errorMsg;
+            }
+            byte[] newMeter = new byte[meterList1.length + meterList2.length];
+            System.arraycopy(meterList1, 0, newMeter, 0, meterList1.length);
+            System.arraycopy(meterList2, 0, newMeter, meterList1.length, meterList2.length);
+            assist.c645Bean.meterNumberList.clear();
+            assist.recStrData = HexStringUtil.bytesToHexString(newMeter);
+            byte[] item = new byte[17];
+            if (newMeter.length >= 17) {
+                int num = newMeter.length / 17;
+
+                for (int i = 0; i < num; i++) {
+                    System.arraycopy(newMeter, i * 17, item, 0, 17);
+
+                    byte[] meterNo = new byte[6];
+                    System.arraycopy(item, 0, meterNo, 0, 6);
+                    byte[] meterRev = new byte[6];
+                    int k = 0;
+                    for (int j = meterNo.length - 1; j >= 0; j--) {
+                        meterRev[k] = meterNo[j];
+                        k++;
+                    }
+                    assist.c645Bean.meterNumberList.add(HexStringUtil.bytesToHexString(meterRev));
+                }
+            }
+        } else {
+            assist.aResult = false;
+            assist.errMsg = model.errorMsg;
+        }
+        return assist;
+    }
+
+    /**
+     * 连接采集器
+     *
+     * @param collectorNo String
+     * @return TranXADRAssist
+     */
+    private synchronized TranXADRAssist connectCollectorNew(String collectorNo, ReceiveModel model) {
+        TranXADRAssist assist = new TranXADRAssist();
+        GlobalCommunicators.c645Address = "AAAAAAAAAAAA";
+        GlobalCommunicators.Update();
+
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("LH", new byte[0], model);
+        System.out.println("LH send finish'");
+        if (!model.isSuccess) {
+            assist.errMsg = "LH write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("NR", new byte[0], model);
+        System.out.println("NR send finish'");
+        if (!model.isSuccess) {
+            assist.errMsg = "NR write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("SD", new byte[]{0x01}, model);
+        System.out.println("SD send finish'");
+        if (!model.isSuccess) {
+            assist.errMsg = "SD write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("WR", new byte[0], model);
+        System.out.println("WR send finish'");
+        if (!model.isSuccess) {
+            assist.errMsg = "WR write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("ID", HexStringUtil.hexToByte(HexStringUtil.padRight(collectorNo, 16, '0')), model);
+        System.out.println("ID send finish'");
+        if (!model.isSuccess) {
+            assist.errMsg = "ID write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        int i = 0;
+        while (i < 3) {
+            model = GlobalCommunicators.zigbeeCommandExecutor.Write("AI", new byte[0], model);
+            System.out.println("AI send finish'");
+            if (model.isSuccess && ((model.recBytes[model.recBytes.length - 1] & 0xff) == 0xEC)) {
+                break;
+            }
+            SystemClock.sleep(2000);
+            i++;
+        }
+        if (!model.isSuccess) {
+            assist.errMsg = "AI write fail";
+            assist.aResult = false;
+            return assist;
+        }
+        assist.recBytes = model.recBytes;
+        assist.errMsg = model.errorMsg;
+        assist.aResult = true;
+        return assist;
+    }
+
+    //清表
+    private TranXADRAssist executeCleatMeter(String collectorNo, ReceiveModel model) {
+        TranXADRAssist tranXADRAssist = new TranXADRAssist();
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(collectorNo, 12, 'F');
+        GlobalCommunicators.Update();
+        model.setReadType(MeterDataTypes.SetupMode);
+        model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.SetupMode,
+                GlobalCommunicators.CollectorPasswordBytes, new byte[]{0x04}, model);
+        if (model.isSuccess) {
+            tranXADRAssist.recBytes = model.recBytes;
+            tranXADRAssist.aResult = true;
+        } else {
+            tranXADRAssist.errMsg = model.errorMsg;
+            tranXADRAssist.aResult = false;
+        }
+        return tranXADRAssist;
+    }
+
+    /**
+     * 读取电表 继电器 状态 读取
+     *
+     * @param collectorNo 采集器号
+     * @param model       ReceiveModel
+     * @param meters      表 集合
+     * @return List<TranXADRAssist>
+     */
+    private List<TranXADRAssist> executeReadRelay(String collectorNo, ReceiveModel model, List<String> meters) {
+        List<TranXADRAssist> tranXADRAssist = new ArrayList<>();
+        System.out.println("Read Meter Relay Status Start  ...");
+        int i = 0;
+        for (String meter : meters) {
+            TranXADRAssist assist = new TranXADRAssist();
+            System.out.println(meter + ":" + "Position" + ":" + String.valueOf(i));
+            GlobalCommunicators.c645Address = HexStringUtil.padLeft(meter, 12, '0');
+            GlobalCommunicators.Update();
+            model.setReadType(MeterDataTypes.ReadRelayStatus);
+            model = GlobalCommunicators.c645ZigbeeMeter.Read(model);
+            // List<Byte> lstdata = new ArrayList<>();
+            //lstdata.addAll(model.recBytes);
+            if (model.isSuccess) {
+                MeterRelayBean item = new MeterRelayBean();
+                item.collectorTime = HexStringUtil.getNowTime();
+                item.collectorNo = collectorNo;
+                item.meterNo = meter;
+                item.meterPosition = String.valueOf(i);
+
+                item.relayStatus = HexStringUtil.bytesToHexString(new byte[model.recBytes[2]]);
+                item.meterMode = HexStringUtil.bytesToHexString(new byte[model.recBytes[3]]);
+                item.relayReason = HexStringUtil.bytesToHexString(new byte[model.recBytes[4]]);
+//                //解析数据
+                item.relayReason = OperationReasons.GetRelayOperationReason(item.relayReason);
+//                if (!item.AddDBItem(GlobalDataBases.DBTask)) {
+//                    errorMessage.Add(StaticITableModel.errorMessage);
+//                    System.out.println(meter + ":" + "TIME OUT FAILED");
+//                    return false;
+//                }
+//
+//                System.out.println("Relay Status" + ":" + RelayStates.GetRelayStatusText(item));
+//                System.out.println("Meter Mode" + ":" + MeterModes.GetMeterModeText(item));
+//                System.out.println("Operation Reason" + ":" + OperationReasons.GetRelayOperationReasonText(item));
+            }
+// else {
+//                System.out.println(meter + ":" + "TIME OUT FAILED");
+//                //  Log("-------------------" + "-------------------");
+//            }
+            i++;
+            tranXADRAssist.add(assist);
+        }
+        System.out.println("ALL finished");
+        return tranXADRAssist;
+    }
+
+    /// <summary>
+    /// 0x01 退出安装模式  0x00 进入安装模式
+    /// </summary>
+    /// <returns></returns>
+    private TranXADRAssist executeInstall(TranXADRAssist assist, ReceiveModel model) {
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        //0x01 退出安装模式   0x00 进入安装模式
+        model.setReadType(MeterDataTypes.SetupMode);
+        model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.SetupMode,
+                GlobalCommunicators.CollectorPasswordBytes, assist.c645Bean.relayAction ? new byte[]{0x01} : new byte[]{0x00}, model);
+        assist.aResult = model.isSuccess;
+        assist.errMsg = model.errorMsg;
+        assist.recBytes = model.recBytes;
+        return assist;
+    }
+
+    /**
+     * 断开连接 采集器
+     *
+     * @param collectorNo 采集器号
+     * @param model       数据接收
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist executeDisconnect(String collectorNo, ReceiveModel model) {
+        TranXADRAssist assist = new TranXADRAssist();
+        GlobalCommunicators.c645Address = "AAAAAAAAAAAA";
+        GlobalCommunicators.Update();
+        System.out.println("Disconnect Start : " + collectorNo + " ...");
+
+        model = GlobalCommunicators.zigbeeCommandExecutor.Write("LN", new byte[0], model);
+        assist.errMsg = model.errorMsg;
+        assist.aResult = model.isSuccess;
+        assist.recBytes = model.recBytes;
+        assist.recStrData = HexStringUtil.bytesToHexString(model.recBytes);
+        return assist;
+    }
+
+    /**
+     * 读取 采集器 gprs
+     *
+     * @param assist 采集器号
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist readGPRS(TranXADRAssist assist, ReceiveModel model) {
+        assist.c645Bean.gprsBean = new GprsBean();
+
+        System.out.println(TAG + "Read ReadGPRSParameters||" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+
+        model.setReadType(MeterDataTypes.ReadGPRS);
+        model = GlobalCommunicators.c645ZigbeeCollector.Read(model);
+        assist.recBytes = model.recBytes;
+        assist.recStrData = HexStringUtil.bytesToHexString(assist.recBytes);
+        assist.errMsg = model.errorMsg;
+        assist.aResult = model.isSuccess;
+        if (model.isSuccess && model.recBytes.length > 0) {
+            StringBuilder stringBuilder = new StringBuilder();
+            byte[] srcData = model.recBytes;
+
+            //apn
+            int apnLen = srcData[0] & 0xff;
+            byte[] temp = new byte[apnLen];
+            System.arraycopy(srcData, 1, temp, 0, apnLen);
+            assist.c645Bean.gprsBean.apn = HexStringUtil.convertHexToString(HexStringUtil.bytesToHexString(temp));
+
+            byte[] newData = new byte[srcData.length - apnLen - 1];
+            System.arraycopy(srcData, apnLen + 1, newData, 0, newData.length);
+            srcData = Arrays.copyOf(newData, newData.length);
+
+            // stationIP 4个字节
+            int ipLen = 4;
+            temp = new byte[ipLen];
+            System.arraycopy(srcData, 0, temp, 0, ipLen);
+
+            String[] arr = new String[4];
+            for (int i = 0; i < temp.length; i++) {
+                arr[i] = String.valueOf(temp[i] & 0xff);
+            }
+            assist.c645Bean.gprsBean.ip = TextUtils.join(".", arr);
+
+            newData = new byte[srcData.length - ipLen];
+            System.arraycopy(srcData, ipLen, newData, 0, newData.length);
+            srcData = Arrays.copyOf(newData, newData.length);
+
+            //port 倒序
+            int portLen = 2;
+            stringBuilder.append(String.format("%02X", (srcData[1] & 0xff)));
+            stringBuilder.append(String.format("%02X", (srcData[0] & 0xff)));
+            assist.c645Bean.gprsBean.port = Integer.parseInt(stringBuilder.toString(), 16);
+
+            newData = new byte[srcData.length - portLen];
+            System.arraycopy(srcData, portLen, newData, 0, newData.length);
+            srcData = Arrays.copyOf(newData, newData.length);
+
+            // pdp userName
+            int pdpUNameLen = srcData[0] & 0xff;
+            temp = new byte[pdpUNameLen];
+            System.arraycopy(srcData, 1, temp, 0, temp.length);
+            assist.c645Bean.gprsBean.PDPUserName = HexStringUtil.convertHexToString(HexStringUtil.bytesToHexString(temp));
+
+            newData = new byte[srcData.length - pdpUNameLen - 1];
+            System.arraycopy(srcData, pdpUNameLen + 1, newData, 0, newData.length);
+            srcData = Arrays.copyOf(newData, newData.length);
+
+            //pdp userPassword
+            int pdpUPassLen = srcData[0] & 0xff;
+            temp = new byte[pdpUPassLen];
+            System.arraycopy(srcData, 1, temp, 0, temp.length);
+            assist.c645Bean.gprsBean.PDPUserPassword = HexStringUtil.convertHexToString(HexStringUtil.bytesToHexString(temp));
+
+            newData = new byte[srcData.length - pdpUPassLen - 1];
+            System.arraycopy(srcData, pdpUPassLen + 1, newData, 0, newData.length);
+            srcData = Arrays.copyOf(newData, newData.length);
+
+            // sms number
+            int smsNumLen = srcData[0] & 0xff;
+            temp = new byte[smsNumLen];
+            System.arraycopy(srcData, 1, temp, 0, temp.length);
+            assist.c645Bean.gprsBean.SMSNumber = HexStringUtil.convertHexToString(HexStringUtil.bytesToHexString(temp));
+        }
+        return assist;
+    }
+
+    /**
+     * gprs 写  采集器
+     *
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist writeGPRS(TranXADRAssist assist, ReceiveModel model) {
+        if (assist.c645Bean == null || TextUtils.isEmpty(assist.c645Bean.collectorNumber)) {
+            System.out.println(TAG + "write gprs parameter is null");
+            return assist;
+        }
+        System.out.println(TAG + "WriteGPRSParameters||" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        if (assist.c645Bean.gprsBean == null) {
+            assist.errMsg = "GPRS Parameters is null";
+            assist.aResult = false;
+            return assist;
+        }
+        StringBuilder stringBuilder = new StringBuilder();
+        GprsBean gprsBean = assist.c645Bean.gprsBean;
+        String[] ips = gprsBean.ip.split("\\.");
+
+        stringBuilder.append(String.format("%02X", gprsBean.apn.length()));
+        stringBuilder.append(HexStringUtil.parseAscii(gprsBean.apn));
+
+        stringBuilder.append(String.format("%02X", Integer.parseInt(ips[0])));
+        stringBuilder.append(String.format("%02X", Integer.parseInt(ips[1])));
+        stringBuilder.append(String.format("%02X", Integer.parseInt(ips[2])));
+        stringBuilder.append(String.format("%02X", Integer.parseInt(ips[3])));
+
+        String temp = String.format("%04X", gprsBean.port);
+        stringBuilder.append(temp.substring(2, 4));
+        stringBuilder.append(temp.substring(0, 2));
+
+        stringBuilder.append(String.format("%02X", gprsBean.PDPUserName.length()));
+        stringBuilder.append(HexStringUtil.parseAscii(gprsBean.PDPUserName));
+
+        stringBuilder.append(String.format("%02X", gprsBean.PDPUserPassword.length()));
+        stringBuilder.append(HexStringUtil.parseAscii(gprsBean.PDPUserPassword));
+
+        stringBuilder.append(String.format("%02X", gprsBean.SMSNumber.length()));
+        stringBuilder.append(HexStringUtil.parseAscii(gprsBean.SMSNumber));
+        model.setReadType(MeterDataTypes.ReadGPRS);
+        model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.ReadGPRS, GlobalCommunicators.CollectorPasswordBytes, HexStringUtil.hexToByte(stringBuilder.toString()), model);
+        assist.aResult = model.isSuccess;
+        assist.errMsg = model.errorMsg;
+        assist.recBytes = model.recBytes;
+        assist.recStrData = HexStringUtil.bytesToHexString(assist.recBytes);
+
+        return assist;
+    }
+
+    /**
+     * 瞬时量 读取
+     *
+     * @param assist TranXADRAssist 调用参数模型
+     * @param model  接收数据模型
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist readInstantaneous(TranXADRAssist assist, ReceiveModel model) {
+        String Power = "";
+        String Voltage1 = "";
+        String Voltage2 = "";
+        String Voltage3 = "";
+        String Current1 = "";
+        String Current2 = "";
+        String Current3 = "";
+        String Frequency = "";
+        String PowerFactor = "";
+        String ReactivePower = "";
+        List<InstantaneousBean> insList = new ArrayList<>();
+        InstantaneousBean insitem;
+        StringBuilder builder;
+        System.out.println(TAG + "Read Instantaneous Start  ...");
+        for (String meter : assist.c645Bean.meterNumberList) {
+            System.out.println(TAG + "Read Instantaneous Value||" + assist.c645Bean.collectorNumber + "--" + meter);
+            boolean singlePhase = false;
+            int i = 0;
+            GlobalCommunicators.c645Address = HexStringUtil.padLeft(meter, 12, '0');
+            GlobalCommunicators.Update();
+
+            model.setReadType(MeterDataTypes.ReadInstantaneous);
+            model = GlobalCommunicators.c645ZigbeeMeter.Read(model, "");
+            if (!model.isSuccess) {
+                model.setReadType(MeterDataTypes.ReadInstantaneous_M);
+                model = GlobalCommunicators.c645ZigbeeMeter.Read(model, "");
+                if (model.isSuccess) {
+                    singlePhase = true;
+                }
+            }
+
+            if (model.isSuccess && model.recBytes.length > 0) {
+                byte[] receiveData = model.recBytes;
+                if (receiveData.length <= 5) {
+                    System.out.println("NO DATA");
+                } else {
+                    if (singlePhase) {
+                        //单相表
+                        Power = String.format("%02X%02X%02X", receiveData[4] & 0xff, receiveData[3] & 0xff, receiveData[2] & 0xff);
+                        Voltage1 = String.format("%02X%02X", receiveData[6] & 0xff, receiveData[5] & 0xff);
+                        Current1 = String.format("%02X%02X%02X", receiveData[9] & 0xff, receiveData[8] & 0xff, receiveData[7] & 0xff);
+                        Frequency = String.format("%02X%02X", receiveData[11] & 0xff, receiveData[10] & 0xff);
+                        PowerFactor = String.format("%02X%02X", receiveData[13] & 0xff, receiveData[12] & 0xff);
+                        ReactivePower = String.format("%02X%02X%02X", receiveData[16] & 0xff, receiveData[15] & 0xff, receiveData[14] & 0xff);
+
+                    } else {
+                        //三相电表
+                        Power = String.format("%02X%02X%02X", receiveData[4] & 0xff, receiveData[3] & 0xff, receiveData[2] & 0xff);
+                        Voltage1 = String.format("%02X%02X", receiveData[6] & 0xff, receiveData[5] & 0xff);
+                        Voltage2 = String.format("%02X%02X", receiveData[8] & 0xff, receiveData[7] & 0xff);
+                        Voltage3 = String.format("%02X%02X", receiveData[10] & 0xff, receiveData[9] & 0xff);
+                        Current1 = String.format("%02X%02X%02X", receiveData[13] & 0xff, receiveData[12] & 0xff, receiveData[11] & 0xff);
+                        Current2 = String.format("%02X%02X%02X", receiveData[16] & 0xff, receiveData[15] & 0xff, receiveData[14] & 0xff);
+                        Current3 = String.format("%02X%02X%02X", receiveData[19] & 0xff, receiveData[18] & 0xff, receiveData[17] & 0xff);
+                        Frequency = String.format("%02X%02X", receiveData[21] & 0xff, receiveData[20] & 0xff);
+                        PowerFactor = String.format("%02X%02X", receiveData[23] & 0xff, receiveData[22] & 0xff);
+                        ReactivePower = String.format("%02X%02X%02X", receiveData[26] & 0xff, receiveData[25] & 0xff, receiveData[24] & 0xff);
+                    }
+
+                    if (!TextUtils.isEmpty(ReactivePower)) {
+                        builder = new StringBuilder(ReactivePower);
+                        ReactivePower = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(PowerFactor)) {
+                        builder = new StringBuilder(PowerFactor);
+                        PowerFactor = builder.insert(1, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Frequency)) {
+                        builder = new StringBuilder(Frequency);
+                        Frequency = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Current1)) {
+                        builder = new StringBuilder(Current1);
+                        Current1 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Current2)) {
+                        builder = new StringBuilder(Current2);
+                        Current2 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Current3)) {
+                        builder = new StringBuilder(Current3);
+                        Current3 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Voltage1)) {
+                        builder = new StringBuilder(Voltage1);
+                        Voltage1 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Voltage2)) {
+                        builder = new StringBuilder(Voltage2);
+                        Voltage2 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Voltage3)) {
+                        builder = new StringBuilder(Voltage3);
+                        Voltage3 = builder.insert(3, ".").toString();
+                    }
+
+                    if (!TextUtils.isEmpty(Power)) {
+                        builder = new StringBuilder(Power);
+                        Power = builder.insert(3, ".").toString();
+                    }
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = ReactivePower;
+                    insitem.dataType = "ReactivePower";
+                    insList.add(insitem);
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = PowerFactor;
+                    insitem.dataType = "PowerFactor";
+                    insList.add(insitem);
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = Frequency;
+                    insitem.dataType = "Frequency";
+                    insitem.unit = "Hz";
+                    insList.add(insitem);
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = Current1;
+                    insitem.dataType = "Current1";
+                    insitem.unit = "A";
+                    insList.add(insitem);
+
+                    if (!singlePhase && !Current2.contains("F")) {
+                        insitem = new InstantaneousBean();
+                        insitem.collectorNo = assist.c645Bean.collectorNumber;
+                        insitem.collectorTime = HexStringUtil.getNowTime();
+                        insitem.meterNo = meter;
+                        insitem.meterPosition = String.valueOf(i);
+                        insitem.forwardActiveData = Current2;
+                        insitem.dataType = "Current2";
+                        insitem.unit = "A";
+                        insList.add(insitem);
+                    }
+
+                    if (!singlePhase && !Current3.contains("F")) {
+                        insitem = new InstantaneousBean();
+                        insitem.collectorNo = assist.c645Bean.collectorNumber;
+                        insitem.collectorTime = HexStringUtil.getNowTime();
+                        insitem.meterNo = meter;
+                        insitem.meterPosition = String.valueOf(i);
+                        insitem.forwardActiveData = Current3;
+                        insitem.dataType = "Current3";
+                        insitem.unit = "A";
+                        insList.add(insitem);
+                    }
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = Voltage1;
+                    insitem.dataType = "Voltage1";
+                    insitem.unit = "V";
+                    insList.add(insitem);
+
+                    if (!singlePhase && !Voltage2.contains("F")) {
+                        insitem = new InstantaneousBean();
+                        insitem.collectorNo = assist.c645Bean.collectorNumber;
+                        insitem.collectorTime = HexStringUtil.getNowTime();
+                        insitem.meterNo = meter;
+                        insitem.meterPosition = String.valueOf(i);
+                        insitem.forwardActiveData = Voltage2;
+                        insitem.dataType = "Voltage2";
+                        insitem.unit = "V";
+                        insList.add(insitem);
+                    }
+
+                    if (!singlePhase && !Voltage3.contains("F")) {
+                        insitem = new InstantaneousBean();
+                        insitem.collectorNo = assist.c645Bean.collectorNumber;
+                        insitem.collectorTime = HexStringUtil.getNowTime();
+                        insitem.meterNo = meter;
+                        insitem.meterPosition = String.valueOf(i);
+                        insitem.forwardActiveData = Voltage3;
+                        insitem.dataType = "Voltage3";
+                        insitem.unit = "V";
+                        insList.add(insitem);
+                    }
+
+                    insitem = new InstantaneousBean();
+                    insitem.collectorNo = assist.c645Bean.collectorNumber;
+                    insitem.collectorTime = HexStringUtil.getNowTime();
+                    insitem.meterNo = meter;
+                    insitem.meterPosition = String.valueOf(i);
+                    insitem.forwardActiveData = Power;
+                    insitem.dataType = "Power";
+                    insList.add(insitem);
+                }
+            }
+        }
+
+        System.out.println(TAG + "Instantaneous All finished");
+        assist.c645Bean.insBeanList = insList;
+        return assist;
+    }
+
+    /**
+     * 读PAN ID
+     *
+     * @param assist TranXADRAssist
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist readCLTPanID(TranXADRAssist assist, ReceiveModel model) {
+        System.out.println(TAG + "Read ReadCLTPanID=" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+
+        model.setReadType(MeterDataTypes.PanID);
+        model = GlobalCommunicators.c645ZigbeeCollector.Read(model);
+        byte[] data = HexStringUtil.reverse(model.recBytes);
+        assist.c645Bean.value = HexStringUtil.bytesToHexString(data);
+        assist.aResult = model.isSuccess;
+        assist.errMsg = model.errorMsg;
+        return assist;
+    }
+
+    /**
+     * Pan ID write
+     *
+     * @param assist TranXADRAssist
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist writeCLTPanID(TranXADRAssist assist, ReceiveModel model) {
+        System.out.println(TAG + "Write WriteCLTPanID||" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        byte[] sendBytes = HexStringUtil.reverse(HexStringUtil.hexToByte(assist.c645Bean.writeData));
+        model.setReadType(MeterDataTypes.PanID);
+        model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.PanID, GlobalCommunicators.CollectorPasswordBytes, sendBytes, model);
+        assist.aResult = model.isSuccess;
+        assist.errMsg = model.errorMsg;
+        assist.recBytes = model.recBytes;
+        return assist;
+    }
+
+    /**
+     * 以太网 设置
+     *
+     * @param assist TranXADRAssist
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    public TranXADRAssist writeEthernetParameters(TranXADRAssist assist, ReceiveModel model) throws Exception {
+        System.out.println(TAG + "WriteEthernetParameters||" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        byte[] byteList = new byte[18];
+        String[] ips = assist.c645Bean.ethernetBean.stationIP.split("\\.");
+
+        String[] gateway = assist.c645Bean.ethernetBean.gateWay.split("\\.");
+
+        String[] masks = assist.c645Bean.ethernetBean.masks.split("\\.");
+
+        String[] connectIps = assist.c645Bean.ethernetBean.cascade.split("\\.");
+        if (ips.length != 4) {
+            throw new Exception("Input Wrong IP Address :" + assist.c645Bean.ethernetBean.stationIP);
+        }
+        int index = 0;
+        for (String item : ips) {
+
+            byteList[index++] = (byte) Integer.parseInt(item);
+        }
+
+        for (String item : gateway) {
+            byteList[index++] = (byte) Integer.parseInt(item);
+        }
+
+        for (String item : masks) {
+            byteList[index++] = (byte) Integer.parseInt(item);
+        }
+
+        byte[] portBytes = HexStringUtil.GetIntegerBytes(Integer.parseInt(assist.c645Bean.ethernetBean.port), 2);
+        if (portBytes.length > 2 || portBytes.length <= 0) {
+            throw new Exception("port length error!:" + assist.c645Bean.ethernetBean.port);
+        }
+        byteList[index++] = portBytes[0];
+        byteList[index++] = portBytes[1];
+
+
+        for (String item : connectIps) {
+            byteList[index++] = (byte) Integer.parseInt(item);
+        }
+        model.setReadType(MeterDataTypes.ReadEthernet_v1);
+        model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.ReadEthernet_v1, GlobalCommunicators.CollectorPasswordBytes, byteList, model);
+        assist.aResult = model.isSuccess;
+        assist.recBytes = model.recBytes;
+        assist.errMsg = model.errorMsg;
+        return assist;
+
+    }
+
+    /**
+     * 读取 以太网
+     *
+     * @param assist TranXADRAssist
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist readEthernet(TranXADRAssist assist) {
+        System.out.println(TAG + "ReadEthernetParameters||" + assist.c645Bean.collectorNumber);
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        ReceiveModel model = new ReceiveModel();
+        model.setReadType(MeterDataTypes.ReadEthernet_v1);
+        model = GlobalCommunicators.c645ZigbeeCollector.Read(model);//ReadEthernet_v1
+        assist.errMsg = model.errorMsg;
+        assist.recBytes = model.recBytes;
+        if (!model.isSuccess) {
+            assist.aResult = false;
+            return assist;
+        }
+        assist.c645Bean.ethernetBean = new EthernetBean();
+        byte[] data = assist.recBytes;
+        byte[] temp = new byte[data.length - 2];
+        System.arraycopy(data, 2, temp, 0, temp.length);
+        data = Arrays.copyOf(temp, temp.length);
+
+        byte[] stationIP = new byte[4];
+        System.arraycopy(data, 0, stationIP, 0, stationIP.length);
+
+
+        String[] arr = new String[4];
+        for (int i = 0; i < stationIP.length; i++) {
+            arr[i] = String.valueOf(stationIP[i] & 0xff);
+        }
+        assist.c645Bean.ethernetBean.stationIP = TextUtils.join(".", arr);
+
+        byte[] gateway = new byte[4];
+        System.arraycopy(data, 4, gateway, 0, gateway.length);
+        for (int i = 0; i < gateway.length; i++) {
+            arr[i] = String.valueOf(gateway[i] & 0xff);
+        }
+        assist.c645Bean.ethernetBean.gateWay = TextUtils.join(".", arr);
+
+        byte[] master = new byte[4];
+        System.arraycopy(data, 8, master, 0, master.length);
+        for (int i = 0; i < master.length; i++) {
+            arr[i] = String.valueOf(master[i] & 0xff);
+        }
+        assist.c645Bean.ethernetBean.masks = TextUtils.join(".", arr);
+
+        byte[] stationPort = new byte[2];
+        System.arraycopy(data, 12, stationPort, 0, stationPort.length);
+        assist.c645Bean.ethernetBean.port = String.format(Locale.ENGLISH, "%04d", (stationPort[1] & 0xff) * 256
+                + (stationPort[0] & 0xff));
+
+        byte[] connectIP = new byte[4];
+        System.arraycopy(data, 14, connectIP, 0, connectIP.length);
+        for (int i = 0; i < connectIP.length; i++) {
+            arr[i] = String.valueOf(connectIP[i] & 0xff);
+        }
+        assist.c645Bean.ethernetBean.cascade = TextUtils.join(".", arr);
+        return assist;
+    }
+
+    /**
+     * 保电模式
+     * assist.c645Bean.relayAction true 进入保电模式  否则退出
+     *
+     * @param assist TranXADRAssist
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist ExecuteRelay(TranXADRAssist assist) {
+        System.out.println("Enter Power-On Mode Start ...");
+        for (String meterNo : assist.c645Bean.meterNumberList) {
+            System.out.println("Read Enter Power-On Mode||" + assist.c645Bean.collectorNumber + "--" + meterNo);
+            GlobalCommunicators.c645Address = HexStringUtil.padLeft(meterNo, 12, '0');
+            GlobalCommunicators.Update();
+            ReceiveModel model = new ReceiveModel();
+            model = GlobalCommunicators.c645ZigbeeMeter.Write(assist.c645Bean.relayAction ? MeterDataTypes.RelayOn : MeterDataTypes.RelayOff,
+                    GlobalCommunicators.MeterPasswordBytes, new byte[]{}, model);
+
+            if (!model.isSuccess) {
+                model = GlobalCommunicators.c645ZigbeeMeter.Write(assist.c645Bean.relayAction ? MeterDataTypes.RelayOn : MeterDataTypes.RelayOff,
+                        GlobalCommunicators.MeterPasswordBytes, new byte[]{}, model);
+            }
+            if (model.isSuccess) {
+                System.out.println(meterNo + ":" + "Position" + ":" + ":" + "finished!");
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        System.out.println("All finished");
+        return assist;
+
+    }
+
+    /**
+     * 冻结
+     *
+     * @param assist TranXADRAssist
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    private TranXADRAssist readDayBlock(TranXADRAssist assist, ReceiveModel model) {
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        int i = 0;
+        assist.c645Bean.dayBlockBeanList.clear();
+        for (String meter : assist.c645Bean.meterNumberList) {
+            System.out.println(TAG + "Read daily frozen energy||" + assist.c645Bean.collectorNumber + "||meter=" + meter);
+            model.setReadType(MeterDataTypes.ReadDayBill);
+            String meterAddress = HexStringUtil.padLeft(meter.substring(0, 11), 12, '0').substring(1);
+
+            //时间拼接待完成
+            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(MeterDataTypes.ReadDayBill, meterAddress);
+            if (model.isSuccess) {
+                byte[] data = model.recBytes;
+                byte[] temp;
+
+                byte[] itemBlock;
+                while (data.length >= 101) {
+
+                    itemBlock = new byte[101 - 5];
+                    System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
+
+                    while (itemBlock.length >= 32) {
+                        DayBlockBean dayItem = new DayBlockBean();
+                        dayItem.collectorTime = HexStringUtil.getNowTime();
+                        dayItem.collectorNo = assist.c645Bean.collectorNumber;
+                        dayItem.meterNo = meter;
+                        dayItem.meterPosition = String.valueOf(i);
+                        i++;
+                        //2017-06-29 fzj
+                        int aa = 0;
+                        String strNo = meter.substring(meter.length() - 2);
+                        if (!HexStringUtil.byteToString(data[0]).equals(strNo)) {
+                            for (int k = 0; k < itemBlock.length; k++) {
+                                if (HexStringUtil.byteToString(itemBlock[k]).equals(strNo)) {
+                                    //dayList.RemoveRange(0, k);
+                                    temp = new byte[itemBlock.length - k];
+                                    System.arraycopy(itemBlock, k, temp, 0, temp.length);
+                                    itemBlock = Arrays.copyOf(temp, temp.length);
+                                    aa = 1;
+                                    break;
+                                }
+                            }
+                        }
+
+                        dayItem.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
+                        temp = new byte[4];
+                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+                        dayItem.forwardActiveData = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        //dayItem.forwardActiveData = CommonUtils.GetBCDString(temp);
+//                    bool bis = isExists(dayItem.forwardActiveData.Value);
+//                    if (bis) {
+//                        dayItem.ForwardActiveData.Value = dayItem.ForwardActiveData.Value.Insert(6, ".");
+//                    } else {
+//                        double d = Convert.ToDouble(dayItem.ForwardActiveData.Value.Insert(6, "."));
+//                        dayItem.ForwardActiveData.Value = d.ToString();
+//                    }
+                        //2017-06-29 fzj
+                        if (aa == 0) {
+                            temp = new byte[itemBlock.length - 32];
+                            System.arraycopy(itemBlock, 32, temp, 0, temp.length);
+                            itemBlock = Arrays.copyOf(temp, temp.length);
+                        } else if (aa == 1) {
+                            //dayList.RemoveRange(0, 27);
+                            temp = new byte[itemBlock.length - 27];
+                            System.arraycopy(itemBlock, 27, temp, 0, temp.length);
+                            itemBlock = Arrays.copyOf(temp, temp.length);
+                            aa = 0;
+                        }
+
+                        assist.c645Bean.dayBlockBeanList.add(dayItem);
+                    }
+
+                    temp = new byte[data.length - 101];
+                    System.arraycopy(data, 101, temp, 0, temp.length);
+                    data = Arrays.copyOf(temp, temp.length);
+                }
+
+            }
+        }
+        return assist;
+//        foreach (string meterNo in executeObject.InputMeterNoList)
+//        {
+//            BLL.Reportor.EventReport("Read", "daily frozen energy", Globals.GlobalItems.CurrentCollectorNo + "--" + meterNo);
+//            string meterPostion = "";
+//            int i = 0;
+//            SetupInfoDataItem mmodel = new SetupInfoDataItem();
+//            foreach (SetupInfoDataItem item in mmodel.Select<SetupInfoDataItem>(GlobalDataBases.DBTask, mmodel.MeterNo == meterNo))
+//            {
+//                meterPostion = item.MeterPositionValue.ToString();
+//                i = int.Parse(meterPostion) + 1;
+//            }
+//            Log(meterNo + ":" + "Position" + ":" + i.ToString());
+//            // Log("Read Day Billing Data Start:" +meterNo + "  ...");
+//            byte[] receivedata;
+//            executeObject.ReadResult = GlobalCommunicators.C645ZigbeeCollector.ReadDay(MeterDataTypes.ReadDayBill, string.Join("", meterNo.Substring(0, 11).PadLeft(12, '0').SplitInFixLength(2).Reverse().ToArray<string>()) + CommonClass.parameter, out receivedata);
+//            if (executeObject.ReadResult)
+//            {
+//                GlobalParameters.globalparameters.SaveLog(receivedata);
+//
+//                List<byte> receivelst = new List<byte>();
+//                receivelst.AddRange(receivedata);
+//                if (receivelst.Count <= 5)
+//                {
+//                    Log(CommonClass.parameter + "NO DATA");
+//                    //2015-01-20 by yfb
+//                    info.Add(string.Format("{0},{1},{2},{3}", GlobalItems.CurrentCollectorNo, meterNo, DateTime.Now.ToString("yyMMdd"), "NO DATA"));
+//                    //if (isSave)
+//                    //{
+//                    //    csv.Save("NO DATA", GlobalItems.CurrentCollectorNo, meterNo);
+//                    //}
+//                }
+//                else
+//                {
+//                    while (receivelst.Count >= 101)
+//                    {
+//                        List<byte> dayList = new List<byte>();
+//                        dayList = receivelst.GetRange(0, 101);
+//                        dayList.RemoveRange(0, 5);
+//
+//                        while (dayList.Count >= 32)
+//                        {
+//                            DayBlockInfo dayitem = new DayBlockInfo();
+//                            dayitem.CollectorTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+//                            dayitem.CollectorNo += GlobalItems.CurrentCollectorNo;
+//                            dayitem.MeterNo += meterNo;
+//                            dayitem.MeterPosition += i.ToString();
+//                            //2017-06-29 fzj
+//                            int aa = 0;
+//                            string strNo = meterNo.Substring(meterNo.Length - 2);
+//                            if (CommonUtils.GetHexString(dayList[0]) != strNo)
+//                            {
+//                                for (int bb = 0; bb < dayList.Count; bb++)
+//                                {
+//                                    if (CommonUtils.GetHexString(dayList[bb]) == strNo)
+//                                    {
+//                                        dayList.RemoveRange(0, bb);
+//                                        aa = 1;
+//                                        break;
+//                                    }
+//                                }
+//                            }
+//                            //
+//                            dayitem.DataTime += CommonUtils.GetHexString(dayList[7]) + CommonUtils.GetHexString(dayList[8]) + CommonUtils.GetHexString(dayList[9]);
+//                            dayitem.ForwardActiveData += CommonUtils.GetBCDString(dayList.GetRange(12, 4));
+//                            bool bis = isExists(dayitem.ForwardActiveData.Value);
+//                            if (bis)
+//                            {
+//                                dayitem.ForwardActiveData.Value = dayitem.ForwardActiveData.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(dayitem.ForwardActiveData.Value.Insert(6, "."));
+//                                dayitem.ForwardActiveData.Value = d.ToString();
+//                            }
+//
+//                            if (!dayitem.AddDBItem(GlobalDataBases.DBTask))
+//                            {
+//                                // errorMessage.Add(StaticITableModel.errorMessage);
+//
+//                                Log(meterNo + "" + "TIME OUT FAILED");
+//
+//                                return false;
+//                            }
+//
+//                            Log(dayitem.DataTime.Value + ":" + dayitem.ForwardActiveData.Value + "kwh");
+//                            // 2015-01-20 by yfb
+//                            info.Add(string.Format("{0},{1},{2},{3}", GlobalItems.CurrentCollectorNo, meterNo, dayitem.DataTime.Value, dayitem.ForwardActiveData.Value + "kwh"));
+//
+//                            //if (isSave)
+//                            //{
+//                            //    csv.Save(dayitem.ForwardActiveData.Value + "kwh", GlobalItems.CurrentCollectorNo, meterNo);
+//                            //}
+//                            //dayList.RemoveRange(0, 32);
+//
+//                            //2017-06-29 fzj
+//                            if (aa == 0)
+//                            {
+//                                dayList.RemoveRange(0, 32);
+//                            }
+//                            else if (aa == 1)
+//                            {
+//                                dayList.RemoveRange(0, 27);
+//                                aa = 0;
+//                            }
+//
+//                        }
+//                        receivelst.RemoveRange(0, 101);
+//                    }
+//                    if (receivelst.Count > 5)
+//                    {
+//                        receivelst.RemoveRange(0, 5);
+//
+//                        while (receivelst.Count >= 32)
+//                        {
+//                            DayBlockInfo dayitem = new DayBlockInfo();
+//
+//                            dayitem.CollectorNo += GlobalItems.CurrentCollectorNo;
+//                            dayitem.CollectorTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+//                            dayitem.MeterNo += meterNo;
+//                            dayitem.MeterPosition += i.ToString();
+//                            dayitem.DataTime += CommonUtils.GetHexString(receivelst[7]) + CommonUtils.GetHexString(receivelst[8]) + CommonUtils.GetHexString(receivelst[9]);
+//                            dayitem.ForwardActiveData += CommonUtils.GetBCDString(receivelst.GetRange(12, 4));
+//                            bool bis = isExists(dayitem.ForwardActiveData.Value);
+//                            if (bis)
+//                            {
+//                                dayitem.ForwardActiveData.Value = dayitem.ForwardActiveData.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(dayitem.ForwardActiveData.Value.Insert(6, "."));
+//                                dayitem.ForwardActiveData.Value = d.ToString();
+//                            }
+//                            if (!dayitem.AddDBItem(GlobalDataBases.DBTask))
+//                            {
+//                                // errorMessage.Add(StaticITableModel.errorMessage);
+//
+//                                Log(meterNo + "" + "TIME OUT FAILED");
+//                                // Log("-------------------" + "-------------------");
+//                                return false;
+//                            }
+//                            Log(dayitem.DataTime.Value + ":" + dayitem.ForwardActiveData.Value + "kwh");
+//                            // 2015-01-20 by yfb
+//                            info.Add(string.Format("{0},{1},{2},{3}", GlobalItems.CurrentCollectorNo, meterNo, dayitem.DataTime.Value, dayitem.ForwardActiveData.Value + "kwh"));
+//
+//                            //if (isSave)
+//                            //{
+//                            //    csv.Save(dayitem.ForwardActiveData.Value + "kwh", GlobalItems.CurrentCollectorNo, meterNo);
+//                            //}
+//                            receivelst.RemoveRange(0, 32);
+//
+//                        }
+//
+//                    }
+//
+//                }
+//            }
+//            else
+//            {
+//                // Log("-------------------" + "-------------------");
+//                Log(meterNo + "" + "TIME OUT FAILED");
+//                return false;
+//
+//            }
+//
+//        }
+//
+//        Log("All finished");
+//            #region 2015-01-20 by yfb
+//
+//        if (isSave)
+//        {
+//            csv.Save(GlobalItems.CurrentCollectorNo, info);
+//        }
+//
+//            #endregion
+//        return true;
+
+    }
+
+    /**
+     * 冻结-预付费信息
+     *
+     * @param assist TranXADRAssist 参数
+     * @param model  ReceiveModel
+     * @return TranXADRAssist
+     */
+    public TranXADRAssist readDayBlockPrePayment(TranXADRAssist assist, ReceiveModel model) {
+        GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
+        GlobalCommunicators.Update();
+        assist.c645Bean.prePaymentBeanList.clear();
+        for (String meter : assist.c645Bean.meterNumberList) {
+            model.setReadType(MeterDataTypes.ReadPre);
+            String meterAddress = HexStringUtil.padLeft(meter.substring(0, 11), 12, '0').substring(1);
+            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(MeterDataTypes.ReadPre, meterAddress);
+            if (model.isSuccess) {
+                byte[] data = model.recBytes;
+                byte[] temp;
+                byte[] itemBlock;
+                int i = 0;
+                while (data.length >= 122) {
+                    itemBlock = new byte[122 - 5];
+                    System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
+
+                    while (itemBlock.length >= 28) {
+                        if ((itemBlock[0] & 0xff) == 0xBF || (itemBlock[1] & 0xff) == 0xF0 ||
+                                (itemBlock[2] & 0xff) == 0x01 || (itemBlock[3] & 0xff) == 0x00
+                                || (itemBlock[4] & 0xff) == 0x0F) {
+                            temp = new byte[itemBlock.length - 5];
+                            System.arraycopy(data, 5, temp, 0, temp.length);
+                            itemBlock = Arrays.copyOf(temp, temp.length);
+                        }
+                        PrePaymentBean daypre = new PrePaymentBean();
+                        daypre.collectTime = HexStringUtil.getNowTime();
+                        daypre.collectorNo = assist.c645Bean.collectorNumber;
+                        daypre.meterNo = meter;
+                        daypre.meterPosition = String.valueOf(i);
+                        i++;
+                        daypre.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
+                        temp = new byte[4];
+                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+                        daypre.comsumption = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 16, temp, 0, temp.length);
+                        daypre.credit = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 20, temp, 0, temp.length);
+                        daypre.surplus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        temp = new byte[1];
+                        System.arraycopy(itemBlock, 24, temp, 0, temp.length);
+                        daypre.moneyStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+
+                        System.arraycopy(itemBlock, 25, temp, 0, temp.length);
+                        daypre.relayStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 26, temp, 0, temp.length);
+                        daypre.meterMode = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 27, temp, 0, temp.length);
+                        daypre.relayOperationReason = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+
+                        assist.c645Bean.prePaymentBeanList.add(daypre);
+
+                        temp = new byte[itemBlock.length - 28];
+                        System.arraycopy(itemBlock, 28, temp, 0, temp.length);
+                        itemBlock = Arrays.copyOf(temp, temp.length);
+
+
+                    }
+                    temp = new byte[data.length - 122];
+                    System.arraycopy(data, 0, temp, 0, temp.length);
+                    data = Arrays.copyOf(temp, temp.length);
+                }
+
+                if (data.length > 5) {
+                    i = 0;
+
+                    while (data.length >= 28) {
+                        itemBlock = new byte[28 - 5];
+                        System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
+
+                        if ((data[0] & 0xff) == 0xBF || (data[1] & 0xff) == 0xF0 || (data[2] & 0xff) == 0x01
+                                || (data[3] & 0xff) == 0x00 || (data[4] & 0xff) == 0x0F) {
+                            temp = new byte[itemBlock.length - 5];
+                            System.arraycopy(data, 5, temp, 0, temp.length);
+                            itemBlock = Arrays.copyOf(temp, temp.length);
+                        }
+                        PrePaymentBean daypre = new PrePaymentBean();
+                        daypre.collectTime = HexStringUtil.getNowTime();
+                        daypre.collectorNo = assist.c645Bean.collectorNumber;
+                        daypre.meterNo = meter;
+                        daypre.meterPosition = String.valueOf(i);
+                        daypre.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
+                        temp = new byte[4];
+                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+                        daypre.comsumption = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 16, temp, 0, temp.length);
+                        daypre.credit = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 20, temp, 0, temp.length);
+                        daypre.surplus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        temp = new byte[1];
+                        System.arraycopy(itemBlock, 24, temp, 0, temp.length);
+                        daypre.moneyStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+
+                        System.arraycopy(itemBlock, 25, temp, 0, temp.length);
+                        daypre.relayStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 26, temp, 0, temp.length);
+                        daypre.meterMode = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        System.arraycopy(itemBlock, 27, temp, 0, temp.length);
+                        daypre.relayOperationReason = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        assist.c645Bean.prePaymentBeanList.add(daypre);
+
+                        temp = new byte[itemBlock.length - 28];
+                        System.arraycopy(data, 28, temp, 0, temp.length);
+                        data = Arrays.copyOf(temp, temp.length);
+                    }
+                }
+            }
+        }
+        return assist;
+        //获取这张表task中ReadMonthFreezeElectric项的parameters参数
+//        List<byte> receivelst = null;
+//        List<byte> dayList = null;
+//        List<byte> testlist = null;
+//        MeterInfoItem Meteritem = new MeterInfoItem();
+//        GlobalCommunicators.c645Address = GlobalItems.ReadCollectorNo.PadLeft(12, 'F');
+//        GlobalCommunicators.Update();
+//        Log("RPDa Start:" + CommonClass.parameter + "");
+//        foreach (string meterNo in executeObject.InputMeterNoList)
+//        {
+//            BLL.Reportor.EventReport("Read", "Read daily frozen PrePayment", Globals.GlobalItems.CurrentCollectorNo + "--" + meterNo);
+//            string meterPostion = "";
+//            int i = 0;
+//            SetupInfoDataItem mmodel = new SetupInfoDataItem();
+//            foreach (SetupInfoDataItem item in mmodel.Select<SetupInfoDataItem>(GlobalDataBases.DBTask, mmodel.MeterNo == meterNo))
+//            {
+//                meterPostion = item.MeterPositionValue.ToString();
+//                i = int.Parse(meterPostion) + 1;
+//            }
+//            Log(meterNo + ":" + "Position" + ":" + i.ToString());
+//            byte[] receivedata;
+//            executeObject.ReadResult = GlobalCommunicators.C645ZigbeeCollector.ReadDay(MeterDataTypes.ReadPre, string.Join("", meterNo.PadLeft(12, '0').SplitInFixLength(2).Reverse().ToArray<string>()) + CommonClass.parameter, out receivedata);
+//            if (executeObject.ReadResult)
+//            {
+//                GlobalParameters.globalparameters.SaveLog(receivedata);
+//                //receivedata = test;
+//
+//                receivelst = new List<byte>();
+//                receivelst.AddRange(receivedata);
+//                if (receivelst.Count <= 5)
+//                {
+//                    Log(CommonClass.parameter + "NO DATA");
+//                }
+//                else
+//                {
+//                    //while (receivelst.Count >= 117)
+//                    while (receivelst.Count >= 122)
+//                    {
+//                        //dayList = new List<byte>(receivelst.GetRange(0, 117));
+//                        dayList = new List<byte>(receivelst.GetRange(0, 122));
+//                        //dayList.AddRange(receivelst.GetRange(0, 117));
+//                        dayList.RemoveRange(0, 5);
+//
+//                        while (dayList.Count >= 28)
+//                        {
+//                            if (dayList[0] == 0xBF || dayList[1] == 0xF0 || dayList[2] == 0x01 || dayList[3] == 0x00 || dayList[4] == 0x0F)
+//                            {
+//                                dayList.RemoveRange(0, 5);
+//                            }
+//                            PrePaymentInfo daypre = new PrePaymentInfo();
+//                            daypre.CollectTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+//                            daypre.CollectorNo += GlobalItems.CurrentCollectorNo;
+//                            daypre.MeterNo += meterNo;
+//                            daypre.MeterPosition += i.ToString();
+//                            daypre.DataTime += CommonUtils.GetHexString(dayList[7]) + CommonUtils.GetHexString(dayList[8]) + CommonUtils.GetHexString(dayList[9]);
+//                            daypre.MoneyUsed += CommonUtils.GetBCDString(dayList.GetRange(12, 4));
+//                            daypre.MoneyAdded += CommonUtils.GetBCDString(dayList.GetRange(16, 4));
+//                            daypre.MoneyLeft += CommonUtils.GetBCDString(dayList.GetRange(20, 4));
+//                            daypre.MoneyStatus += CommonUtils.GetBCDString(dayList.GetRange(24, 1));
+//                            daypre.RelayStatus += CommonUtils.GetBCDString(dayList.GetRange(25, 1));
+//                            daypre.MeterMode += CommonUtils.GetBCDString(dayList.GetRange(26, 1));
+//                            daypre.RelayOperationReason += CommonUtils.GetBCDString(dayList.GetRange(27, 1));
+//                            bool bis = isExists(daypre.MoneyUsed.Value);
+//                            if (bis)
+//                            {
+//                                daypre.MoneyUsed.Value = daypre.MoneyUsed.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(daypre.MoneyUsed.Value.Insert(6, "."));
+//                                daypre.MoneyUsed.Value = d.ToString();
+//                            }
+//                            bool bisAdd = isExists(daypre.MoneyAdded.Value);
+//                            if (bisAdd)
+//                            {
+//                                daypre.MoneyAdded.Value = daypre.MoneyAdded.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(daypre.MoneyAdded.Value.Insert(6, "."));
+//                                daypre.MoneyAdded.Value = d.ToString();
+//                            }
+//                            bool bisleft = isExists(daypre.MoneyLeft.Value);
+//                            if (bisleft)
+//                            {
+//                                daypre.MoneyLeft.Value = daypre.MoneyLeft.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double left = Convert.ToDouble(daypre.MoneyLeft.Value.Insert(6, "."));
+//                                daypre.MoneyLeft.Value = left.ToString();
+//                            }
+//
+//                            daypre.RelayStatus.Value = StaticPrePaymentRelayStates.GetRelayStatus(daypre);
+//
+//                            if (!daypre.AddDBItem(GlobalDataBases.DBTask))
+//                            {
+//                                errorMessage.Add(StaticITableModel.errorMessage);
+//                                return false;
+//                            }
+//                            Log(daypre.DataTime.Value + " " + "Comsumption" + ":" + daypre.MoneyUsed.Value + "kwh");
+//                            Log(daypre.DataTime.Value + " " + "Charge" + ":" + daypre.MoneyAdded.Value + "kwh");
+//                            Log(daypre.DataTime.Value + " " + "Credit" + ":" + daypre.MoneyLeft.Value + "kwh");
+//                            //  Log(daypre.DataTime.Value + " " + "MS" + ":" + daypre.MoneyStatus.Value);
+//                            Log(daypre.DataTime.Value + " " + "Relay Status" + ":" + StaticPrePaymentRelayStates.GetRelayStatusText(daypre));
+//                            Log(daypre.DataTime.Value + " " + "Meter Mode" + ":" + StaticPrePaymentMeterModes.GetMeterModeText(daypre));
+//                            Log(daypre.DataTime.Value + " " + "Operation Reason" + ":" + StaticPrePaymentOperationReasons.GetRelayOperationReasonText(daypre));
+//                            dayList.RemoveRange(0, 28);
+//
+//                        }
+//                        //receivelst.RemoveRange(0, 117);
+//                        receivelst.RemoveRange(0, 122);
+//                    }
+//                    if (receivelst.Count > 5)
+//                    {
+//                        receivelst.RemoveRange(0, 5);
+//                        while (receivelst.Count >= 28)
+//                        {
+//                            if (receivelst[0] == 0xBF || receivelst[1] == 0xF0 || receivelst[2] == 0x01 || receivelst[3] == 0x00 || receivelst[4] == 0x0F)
+//                            {
+//                                receivelst.RemoveRange(0, 5);
+//                            }
+//                            PrePaymentInfo daypre = new PrePaymentInfo();
+//                            daypre.CollectTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+//                            daypre.CollectorNo += GlobalItems.CurrentCollectorNo;
+//                            daypre.MeterNo += meterNo;
+//                            daypre.MeterPosition += i.ToString();
+//                            daypre.DataTime += CommonUtils.GetHexString(receivelst[7]) + CommonUtils.GetHexString(receivelst[8]) + CommonUtils.GetHexString(receivelst[9]);
+//                            daypre.MoneyUsed += CommonUtils.GetBCDString(receivelst.GetRange(12, 4));
+//                            daypre.MoneyAdded += CommonUtils.GetBCDString(receivelst.GetRange(16, 4));
+//                            daypre.MoneyLeft += CommonUtils.GetBCDString(receivelst.GetRange(20, 4));
+//                            daypre.MoneyStatus += CommonUtils.GetBCDString(receivelst.GetRange(24, 1));
+//                            daypre.RelayStatus += CommonUtils.GetBCDString(receivelst.GetRange(25, 1));
+//                            daypre.MeterMode += CommonUtils.GetBCDString(receivelst.GetRange(26, 1));
+//                            daypre.RelayOperationReason += CommonUtils.GetBCDString(receivelst.GetRange(27, 1));
+//                            //解析数据
+//                            bool bis = isExists(daypre.MoneyUsed.Value);
+//                            if (bis)
+//                            {
+//                                daypre.MoneyUsed.Value = daypre.MoneyUsed.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(daypre.MoneyUsed.Value.Insert(6, "."));
+//                                daypre.MoneyUsed.Value = d.ToString();
+//                            }
+//                            bool bisAdd = isExists(daypre.MoneyAdded.Value);
+//                            if (bisAdd)
+//                            {
+//                                daypre.MoneyAdded.Value = daypre.MoneyAdded.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double d = Convert.ToDouble(daypre.MoneyAdded.Value.Insert(6, "."));
+//                                daypre.MoneyAdded.Value = d.ToString();
+//                            }
+//                            bool bisleft = isExists(daypre.MoneyLeft.Value);
+//                            if (bisleft)
+//                            {
+//                                daypre.MoneyLeft.Value = daypre.MoneyLeft.Value.Insert(6, ".");
+//                            }
+//                            else
+//                            {
+//                                double left = Convert.ToDouble(daypre.MoneyLeft.Value.Insert(6, "."));
+//                                daypre.MoneyLeft.Value = left.ToString();
+//                            }
+//
+//                            daypre.RelayStatus.Value = StaticPrePaymentRelayStates.GetRelayStatus(daypre);
+//                            if (!daypre.AddDBItem(GlobalDataBases.DBTask))
+//                            {
+//                                errorMessage.Add(StaticITableModel.errorMessage);
+//                                return false;
+//                            }
+//                            Log(daypre.DataTime.Value + " " + "Comsumption" + ":" + daypre.MoneyUsed.Value + "kwh");
+//                            Log(daypre.DataTime.Value + " " + "Charge" + ":" + daypre.MoneyAdded.Value + "kwh");
+//                            Log(daypre.DataTime.Value + " " + "Credit" + ":" + daypre.MoneyLeft.Value + "kwh");
+//                            // Log(daypre.DataTime.Value + " " + "MS" + ":" + daypre.MoneyStatus.Value);
+//                            Log(daypre.DataTime.Value + " " + "Relay Status" + ":" + StaticPrePaymentRelayStates.GetRelayStatusText(daypre));
+//                            Log(daypre.DataTime.Value + " " + "Meter Mode" + ":" + StaticPrePaymentMeterModes.GetMeterModeText(daypre));
+//                            Log(daypre.DataTime.Value + " " + "Operation Reason" + ":" + StaticPrePaymentOperationReasons.GetRelayOperationReasonText(daypre));
+//                            receivelst.RemoveRange(0, 28);
+//
+//                        }
+//
+//
+//                    }
+//                }
+//            }
+//            else
+//            {
+//                // Log("-------------------" + "-------------------");
+//                Log(meterNo + ":" + "TIME OUT FAILED");
+//
+//            }
+//
+//        }
+//        Log("All finished");
+//        return true;
+
+    }
+
+    /**
+     * 正常读
+     *
+     * @param assist TranXADRAssist
+     * @return TranXADRAssist
+     */
+    public TranXADRAssist read(TranXADRAssist assist) {
+        if (openSerial()) {
+            framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
+            framePara.setHandWaitTime((int) this.handWaitTime);
+            assist = commServer.read(framePara, iComm, assist);
+            closeSerial();
+        } else {
+            assist.aResult = false;
+        }
+        return assist;
+    }
+
+    /**
+     * 发送 16 进制数据
+     *
+     * @param assist 16进制数据
+     * @return TranXADRAssist
+     */
+    public TranXADRAssist sendByte(TranXADRAssist assist) {
+        boolean isSuccess = false;
+        if (assist.isOpenSerial && openSerial()) {
+            assist.errMsg = "openSerial is fail";
+            isSuccess = true;
+        } else if (!assist.isOpenSerial) {
+            isSuccess = true;
+        }
+        if (framePara == null || iComm == null) {
+            assist.errMsg = "iComm or framePara is null ";
+            isSuccess = false;
+        }
+        if (TextUtils.isEmpty(assist.writeData)) {
+            assist.errMsg = "data is empty";
+            isSuccess = false;
+        }
+        if (isSuccess) {
+            framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
+            framePara.setSleepT((int) this.handWaitTime);
+            framePara.setSleepT((int) this.sleepSend);
+            assist = commServer.sendByte(framePara, iComm, assist);
+            if (assist.isCloseSerial) {
+                closeSerial();
+            }
+        }
+        return assist;
+    }
+
+    /**
+     * 开启串口
+     */
+    public synchronized boolean openSerial() {
+        boolean isOpenSuc = false;
+        try {
+            this.initPara();
+            int pos = 0;
+            while (pos < 5) {
+                iComm = new CommOpticalSerialPort();
+                iComm = commServer.openDevice(cPara, iComm);
+                if (iComm != null) {
+                    isTermination = false;
+                    isOpenSuc = true;
+                    if (deviceType.equals(HexDevice.HT380A)) {
+                        powerHT380AOn();
+                    } else {
+                        powerOn();
+                    }
+                    break;
+                } else {
+                    pos++;
+                    cPara.ComName = cPara.ComName.substring(0, cPara.ComName.length() - 1) + pos;
+                }
+
+            }
+            if (!isOpenSuc) {
+                listener.onFailure("open Serial port fail");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            listener.onFailure(e.getMessage());
+        }
+        return isOpenSuc;
+    }
+
+    /**
+     * 关闭串口
+     */
+    public synchronized void closeSerial() {
+        isTermination = true;
+        try {
+            if (commServer != null && iComm != null) {
+                commServer.DiscFrame(iComm);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            listener.onFailure(ex.getMessage());
+        }
+        try {
+            if (commServer != null && iComm != null) {
+                commServer.close(iComm);
+                iComm = null;
+                commServer = null;
+                if (deviceType.equals(HexDevice.HT380A)) {
+                    powerHT380AOff();
+                } else {
+                    powerOff();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            listener.onFailure(e.getMessage());
+        }
+    }
+
+    /**
+     * 上电操作
+     */
+    public void powerOn() {
+        try {
+            if (deviceControl == null) {
+                deviceControl = new DeviceControl("/sys/class/misc/mtgpio/pin");
+            }
+            deviceControl.PowerOnDevice("-wdout94 1");
+            SystemClock.sleep(1500);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 下电操作
+     */
+    public void powerOff() {
+        if (deviceControl != null) {
+            try {
+                deviceControl.PowerOffDevice("-wdout94 0");
+                deviceControl = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 380A上电操作
+     */
+    public void powerHT380AOn() {
+        try {
+            if (rs232Controller == null) {
+                rs232Controller = new RS232Controller();
+            }
+            rs232Controller.Rs232_PowerOn();
+            SystemClock.sleep(1500);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 380A下电操作
+     */
+    public void powerHT380AOff() {
+        if (rs232Controller != null) {
+            try {
+                rs232Controller.Rs232_PowerOff();
+                rs232Controller = null;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    /**
+     * 断开链路层
+     */
+    public void discFrame() {
+        try {
+            if (commServer != null && iComm != null) {
+                commServer.DiscFrame(iComm);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addListener(IHexListener listener) {
+        this.listenerList.clear();
+        this.listenerList.add(listener);
+    }
+
+    /**
+     * 监听事件
+     */
+    private IHexListener listener = new IHexListener() {
+        @Override
+        public void onFailure(String msg) {
+            for (IHexListener item : listenerList) {
+                item.onFailure(msg);
+            }
+        }
+
+        @Override
+        public void onSuccess(List<TranXADRAssist> dataList) {
+            for (IHexListener item : listenerList) {
+                item.onSuccess(dataList);
+            }
+        }
+
+        @Override
+        public void onSuccessBlock(List<List<TranXADRAssist>> blockList) {
+            for (IHexListener item : listenerList) {
+                item.onSuccessBlock(blockList);
+            }
+        }
+
+
+        @Override
+        public void onFinish() {
+            for (IHexListener item : listenerList) {
+                item.onFinish();
+            }
+        }
+
+        @Override
+        public void onSuccess(TranXADRAssist data, int pos) {
+            for (IHexListener item : listenerList) {
+                item.onSuccess(data, pos);
+            }
+        }
+    };
+
+}

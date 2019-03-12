@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HexingDemo</string>
+
+    <string name="access_token">pk.eyJ1IjoiY2FpYmluZ2xvbmciLCJhIjoiY2pxZ2lydjF5MDkyYzQydWY3YW5lOWUxbyJ9.KqFFvPtVLEL9SUl6db4wtg</string>
+</resources>

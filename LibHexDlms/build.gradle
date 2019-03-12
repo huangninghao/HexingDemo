@@ -1,0 +1,65 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 26
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            zipAlignEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError false
+    }
+
+}
+
+allprojects {
+    tasks.withType(Javadoc) {
+        options.addStringOption('Xdoclint:none', '-quiet')
+        options.addStringOption('encoding', 'UTF-8')
+        options.addStringOption('charSet', 'UTF-8')
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar', '.so'])
+    implementation 'com.android.support:support-annotations:28.0.0'
+    implementation 'org.apache.servicemix.bundles:org.apache.servicemix.bundles.bcprov-jdk15on:1.59_1'
+    //compile 'com.speedata:deivice:1.5.4'
+}
+
+//以下代码会生成jar包源文件，如果是不开源码，请不要输入这段
+//aar包内包含注释
+task androidSourcesJar(type: Jar) {
+    classifier = 'sources'
+    from android.sourceSets.main.java.sourceFiles
+}
+
+artifacts {
+    archives androidSourcesJar
+}
+
+
+apply plugin: 'com.novoda.bintray-release'
+publish {
+    userOrg = 'caibinglong1987'//bintray.com用户名
+    groupId = 'com.hexing'//jcenter上的路径
+    artifactId = 'communication'//项目名称
+    publishVersion = '2.1.5'//版本号  3.0之后 不兼容之前的版本
+    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+    website = 'https://github.com/caibinglong1987/HexingDemo'
+}
+
+
