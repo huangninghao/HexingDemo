@@ -12,6 +12,7 @@ import cn.hexing.dlt645.model.EthernetBean;
 import cn.hexing.dlt645.model.GprsBean;
 import cn.hexing.dlt645.model.InstantaneousBean;
 import cn.hexing.dlt645.model.MeterRelayBean;
+import cn.hexing.dlt645.model.MeterSetupBean;
 import cn.hexing.dlt645.model.PrePaymentBean;
 
 
@@ -145,13 +146,13 @@ public class TranXADRAssist implements Cloneable, Serializable {
         public GprsBean gprsBean; //gprs
         public EthernetBean ethernetBean;
         public String value;
-        public List<InstantaneousBean> insBeanList = new ArrayList<>(); //瞬时量
-        public List<MeterRelayBean> relayBeanList = new ArrayList<>(); //继电器
-        public List<DayBlockBean> dayBlockBeanList = new ArrayList<>();// 日冻结
-        public List<PrePaymentBean> prePaymentBeanList = new ArrayList<>();//日冻结 预付费
+        public InstantaneousBean insBean; //瞬时量
+        public MeterRelayBean relayBean; //继电器
+        public List<DayBlockBean> dayBlockBean;// 日冻结
+        public List<PrePaymentBean> prePaymentBeanList;//日冻结 预付费
         public boolean relayAction = false; //true connect false disconnect
         public List<String> meterNumberList = new ArrayList<>();//表
-
+        public List<MeterSetupBean> meterSetupBeanList = new ArrayList<>();//表
         public int getMeterDataType645Id() {
             return meterDataType645Id;
         }

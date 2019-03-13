@@ -501,6 +501,45 @@ public class CommServer extends AbsCommServer {
     }
 
     /**
+     * 捕获负荷 对象
+     * @param paraModel HXFramePara
+     * @param commDevice AbsCommAction
+     * @param assist TranXADRAssist
+     * @return TranXADRAssist
+     */
+    public synchronized TranXADRAssist ReadProfiles(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist){
+        try {
+            //转换数据类型
+            paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
+            paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
+            if (paraModel.CommDeviceType.equals("Optical")) {
+                paraModel.DestAddr = new byte[]{0x03};
+            } else if (paraModel.CommDeviceType.equals("RF")) {
+                paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            }
+            if (debugMode) {
+                Log.v("ReadProfiles", "准备开始捕获对象=" + paraModel.OBISattri);
+            }
+            byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
+            if (debugMode) {
+                Log.v("ReadProfiles", "负荷读取捕获对象结束=" + HexStringUtil.bytesToHexString(recByt));
+            }
+            if (recByt == null || recByt.length == 0) {
+                return assist;
+            }
+            assist = dlmsService.TranBillingCodeNew(recByt, assist);
+        } catch (Exception e) {
+            if (debugMode) {
+                Log.e("ReadProfiles", "数据接收错误=" + e.getMessage());
+            }
+            if (listener != null) {
+                listener.onFailure(e.getMessage());
+            }
+        }
+        return assist;
+    }
+
+    /**
      * 捕获 负荷 数据项 obis
      *
      * @param paraModel  HXFramePara

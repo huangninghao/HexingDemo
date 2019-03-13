@@ -5,6 +5,7 @@ import android.os.SystemClock;
 import java.util.ArrayList;
 
 import cn.hexing.HexDevice;
+import cn.hexing.HexHandType;
 import cn.hexing.HexStringUtil;
 import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.model.HXFramePara;
@@ -38,6 +39,10 @@ public class HexHandLC implements IProtocol {
      * @return boolean
      */
     private boolean Handclasp(HXFramePara paraModel, AbsCommAction commDevice) {
+        if (paraModel.handType == HexHandType.IRAQ) {
+            //伊拉克
+            return Handclasp2(paraModel, commDevice);
+        }
         try {
             Nrec = 0;
             Nsend = 0;
@@ -108,6 +113,41 @@ public class HexHandLC implements IProtocol {
 
         return true;
     }
+
+    /**
+     * -握手 伊拉克表
+     *
+     * @param paraModel  HXFramePara
+     * @param commDevice ICommAction
+     * @return boolean
+     */
+    private boolean Handclasp2(HXFramePara paraModel, AbsCommAction commDevice) {
+        try {
+            commDevice.setBaudRate(paraModel.baudRate);
+            Nrec = 0;
+            Nsend = 0;
+            paraModel.Nrec = Nrec;
+            paraModel.Nsend = Nsend;
+            byte[] sndByt = HexStringUtil.hexToByte(hdlcframe.getBaudRateFrame(paraModel));
+            boolean isSend = commDevice.sendByt(sndByt);
+            // 检查是否发送成功，发送成功
+            if (!isSend) {
+                paraModel.ErrTxt = "Serial port access denied!";// 返回错误代码，串口打开失败
+                return false;
+            }
+            byte[] receiveByt = commDevice.receiveByt(paraModel.getHandWaitTime(), paraModel.getDataFrameWaitTime(), paraModel.recDataConversion);
+            if (receiveByt != null && receiveByt.length > 1) {
+                return true;
+            } else {
+                paraModel.ErrTxt = "Over time!";
+                return false;
+            }
+        } catch (Exception ex) {
+            paraModel.ErrTxt = "Er2:" + ex.getMessage();
+            return false;
+        }
+    }
+
 
     /**
      * 密码校验

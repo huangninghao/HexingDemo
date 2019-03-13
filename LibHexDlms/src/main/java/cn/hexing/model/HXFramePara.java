@@ -2,6 +2,8 @@ package cn.hexing.model;
 
 import java.util.List;
 
+import cn.hexing.HexHandType;
+
 
 public class HXFramePara {
 
@@ -49,7 +51,6 @@ public class HXFramePara {
 
     /**
      * 是否固定通道
-     *
      */
     public int isFixedChannel = -1;//固定通道0
 
@@ -163,7 +164,7 @@ public class HXFramePara {
 
     public boolean isConBaudRate = true;
     public boolean baudRateTest = false;//握手波特率切换测试
-
+    public int handType = HexHandType.HEXING; //握手类型
     //645 start
     public String c645Address; //采集器地址 645
 

@@ -24,6 +24,9 @@ public class OperationReasons {
     public static final String CommonConnect = "Normal On";
     public static final String FactoryModelConnect = "OUFM";
 
+    public static final String RelayStatusConnect = "Connect";
+    public static final String RelayStatusDisconnect = "Disconnect";
+
     public static String GetRelayOperationReason(String value) {
         switch (value) {
             case "01":
@@ -60,4 +63,23 @@ public class OperationReasons {
                 return value;
         }
     }
+
+    /**
+     * 继电器状态
+     *
+     * @param value 16进制数据
+     * @return String
+     */
+    public static String getRelayStatus(String value) {
+        switch (value) {
+            case "00":
+                return OperationReasons.RelayStatusConnect;
+            case "01":
+                return OperationReasons.RelayStatusDisconnect;
+            default:
+                return value;
+        }
+    }
+
+
 }

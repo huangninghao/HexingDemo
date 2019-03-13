@@ -1571,6 +1571,12 @@ public class dlmsService {
                                 itemList.add(structBean);
                             }
                             break;
+                        case HexDataFormat.NULL_DATA:
+                            if (structBean.visible) {
+                                structBean.value = "";
+                                itemList.add(structBean);
+                            }
+                            break;
                         case HexDataFormat.STRUCTURE:
                             dataStartIndex++;
                             if (ItemCount > 0x80) {

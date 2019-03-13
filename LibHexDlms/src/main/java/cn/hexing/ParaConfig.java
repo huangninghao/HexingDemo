@@ -3,6 +3,7 @@ package cn.hexing;
 import cn.hexing.dlms.HexClientAPI;
 import cn.hexing.dlt645.HexClient645API;
 import cn.hexing.iec21.HexClient21API;
+import cn.hexing.iec21.iprotocol.HexHandLC;
 import cn.hexing.model.HXFramePara;
 
 /**
@@ -50,6 +51,8 @@ public class ParaConfig {
      * 是否握手
      */
     public boolean isHands;
+
+    public int handType = -1;
 
     /**
      * 是否固定通道
@@ -129,6 +132,7 @@ public class ParaConfig {
         this.changeBaudRateSleepTime = 300;
         this.channelBaudRate = 4800;
         this.fixedChannel = -1;
+        this.handType = HexHandType.HEXING;
     }
 
     public static class Builder {
@@ -302,6 +306,11 @@ public class ParaConfig {
 
         public Builder setIsFixedChannel(int channel) {
             this.config.fixedChannel = channel;
+            return this;
+        }
+
+        public Builder setHandType(@HexHandType.HandTypes int type) {
+            this.config.handType = type;
             return this;
         }
 

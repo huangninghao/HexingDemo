@@ -12,6 +12,7 @@ import java.util.List;
 import cn.hexing.DeviceControl;
 import cn.hexing.HexAction;
 import cn.hexing.HexDevice;
+import cn.hexing.HexHandType;
 import cn.hexing.HexStringUtil;
 import cn.hexing.IHexListener;
 import cn.hexing.ParaConfig;
@@ -61,6 +62,7 @@ public class HexClient21API {
     private DeviceControl deviceControl;
     private boolean debugMode = false;
     private boolean isBaudRateTest = false;
+    private int handType = HexHandType.HEXING;
     private String strMeterPwd;
 
     public static HexClient21API getInstance() {
@@ -100,6 +102,7 @@ public class HexClient21API {
         this.debugMode = config.debugMode;
         this.isBaudRateTest = config.isBaudRateTest;
         this.sleepChangeBaudRate = config.changeBaudRateSleepTime;
+        this.handType = config.handType;
     }
 
     /**
@@ -244,6 +247,7 @@ public class HexClient21API {
         framePara.sysTitleS = new byte[8];
         framePara.MaxSendInfo_Value = 255;
         framePara.baudRateTest = this.isBaudRateTest;
+        framePara.handType = this.handType;
     }
 
     /**
