@@ -9,4 +9,9 @@ package com.hexing.hexingdemo.model;
 public class ObjectNodeModel {
     public String classid;
     public String obis;
+
+    public static class Item{
+        public String name;
+        public String value;
+    }
 }
