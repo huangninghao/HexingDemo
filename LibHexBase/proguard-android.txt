@@ -1,0 +1,125 @@
+# This is a configuration file for ProGuard.
+# http://proguard.sourceforge.net/index.html#manual/usage.html
+#
+# Starting with version 2.2 of the Android plugin for Gradle, these files are no longer used. Newer
+# versions are distributed with the plugin and unpacked at build time. Files in this directory are
+# no longer maintained.
+
+# 混淆后的名字不要同时使用大小写字母，如果你得到了一个jar，里面包含a和A，然后当你在windows这种大小写不敏感的系统上解压的时候，a和A就会覆盖；
+-dontusemixedcaseclassnames
+# 一般情况下library里的非public类不会被外部引用，跳过他们能加速混淆过程；
+# 但是如果library里有个非public的类C被外部继承了，而这个C在外部代码里被改写后，就找不到引用了；
+-dontskipnonpubliclibraryclasses
+# 输出混淆过程中的详细信息；
+-verbose
+
+
+# Optimization is turned off by default. Dex does not like code run
+# through the ProGuard optimize and preverify steps (and performs some
+# of these optimizations on its own).
+# 关闭proguard的优化和预检功能，Dex后续会负责这些优化工作；
+-dontoptimize
+#什么是预检？class loader在加载class文件的时候会对byte code进行检查，确保代码不会对jvm造成危害；
+#proguard也可以预检，并将预检信息加入class文件，于是，当class loader加载class的时候，就能加快速度和减少内存使用量了；
+-dontpreverify
+# Note that if you want to enable optimization, you cannot just
+# include optimization flags in your own project configuration file;
+# instead you will need to point to the
+# "proguard-android-optimize.txt" file instead of this one from your
+# project.properties file.
+# 保留注释，这个看似是个通配符，其实不是，是保留所有的注释，不管这个注释叫什么；
+-keepattributes *Annotation*
+
+
+# 暂时只知道和App发布到谷歌商店的时候设置授权有关系
+-keep public class com.google.vending.licensing.ILicensingService
+-dontnote com.google.vending.licensing.ILicensingService
+
+# For native methods, see http://proguard.sourceforge.net/manual/examples.html#native
+# 不要重命名包含native方法的类和方法；
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+
+# Keep setters in Views so that animations can still work.
+# Setters for listeners can still be removed.
+# see http://proguard.sourceforge.net/manual/examples.html#beans
+# 保留View的子类的这些setter和getter方法，动画系统会调用；
+-keepclassmembers public class * extends android.view.View {
+    void set*(%);
+    void set*(%, %);
+    void set*(%, %, %, %);
+    void set*(%[]);
+    void set*(**[]);
+    void set*(!**Listener);
+
+
+    % get*();
+    %[] get*();
+    **[] get*();
+    !**Listener get*();
+}
+
+
+# We want to keep methods in Activity that could be used in the XML attribute onClick.
+# 保留Activity里被layout里的onClick属性引用的方法；
+-keepclassmembers class * extends android.app.Activity {
+    public void *(android.view.View);
+}
+
+
+# For enumeration classes, see http://proguard.sourceforge.net/manual/examples.html#enumerations
+# 保留枚举类的values和valueOf方法；java编译器会把enum转成具有特殊结构的class，jvm是通过反射调用这个类的values()和valueOf()方法的；
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+
+# 保留Parcelable对象的static CREATOR域,这是Android用来反序列化对象的.由于CREATOR是在运行时被调用,所以如果不加规则,ProGuard会把它当成无用的成员直接去掉.
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+
+# 保留R的内部类的public static域，app可能通过反射使用这些域；
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+
+# The support libraries contains references to newer platform versions.
+# Don't warn about those in case this app is linking against an older
+# platform version. We know about them, and they are safe.
+# 支持库包含了对新版本platform的引用，在和旧的platform链接的时候会报错，我们心里有数，不要输出通知和警告；
+-dontnote android.support.**
+-dontwarn android.support.**
+
+
+# Understand the @Keep support annotation.
+# 不要混淆Keep注释类，这个注释可能被用来修饰某些类，表示不要混淆；
+# 所以说，我们有2个途径实现不要混淆：1）proguard配置文件； 2）在java代码里使用@Keep注释；
+-keep class android.support.annotation.Keep
+
+
+# 不要混淆由@Keep注释的类，包括所有成员和方法；
+-keep @android.support.annotation.Keep class * {*;}
+
+
+# 不要混淆由@Keep注释的方法及其所在的类；
+-keepclasseswithmembers class * {
+    @android.support.annotation.Keep <methods>;
+}
+
+
+# 不要混淆由@Keep注释的域及其所在的类；
+-keepclasseswithmembers class * {
+    @android.support.annotation.Keep <fields>;
+}
+
+
+# 不要混淆由@Keep注释的构造方法及其所在的类；
+-keepclasseswithmembers class * {
+    @android.support.annotation.Keep <init>(...);
+}
