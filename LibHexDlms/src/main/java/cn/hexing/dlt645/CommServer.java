@@ -108,11 +108,4 @@ public class CommServer extends AbsCommServer {
     public boolean DiscFrame(AbsCommAction commDevice) {
         return DLMSProtocol.discFrame(commDevice);
     }
-
-
-    private boolean TransmitData(byte[] sendData) //, out byte[] receivedData, ref byte controlCode
-    {
-        return false;
-    }
-
 }

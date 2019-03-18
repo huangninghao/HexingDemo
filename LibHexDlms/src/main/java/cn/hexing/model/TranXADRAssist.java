@@ -137,6 +137,7 @@ public class TranXADRAssist implements Cloneable, Serializable {
     public static class C645Bean implements Cloneable, Serializable {
 
         public int maxWaitTime = 3000; //一般用于645 zigBee  ms
+        public int waitReceiveTime = 0;//long  ms
         public int sleepSend = 0;//ms
         private int meterDataType645Id = -1;//645命令 id 控制码
         public String collectorNumber = ""; //采集器
@@ -148,11 +149,12 @@ public class TranXADRAssist implements Cloneable, Serializable {
         public String value;
         public InstantaneousBean insBean; //瞬时量
         public MeterRelayBean relayBean; //继电器
-        public List<DayBlockBean> dayBlockBean;// 日冻结
-        public List<PrePaymentBean> prePaymentBeanList;//日冻结 预付费
+        public List<DayBlockBean> dayBlockBean = new ArrayList<>();// 日冻结
+        public List<PrePaymentBean> prePaymentBeanList = new ArrayList<>();//日冻结 预付费
         public boolean relayAction = false; //true connect false disconnect
         public List<String> meterNumberList = new ArrayList<>();//表
-        public List<MeterSetupBean> meterSetupBeanList = new ArrayList<>();//表
+        public List<MeterSetupBean> meterSetupBeanList = new ArrayList<>();//表安装信息
+
         public int getMeterDataType645Id() {
             return meterDataType645Id;
         }

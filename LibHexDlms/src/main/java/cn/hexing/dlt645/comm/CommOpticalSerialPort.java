@@ -16,6 +16,8 @@ import java.util.TimerTask;
 
 import cn.hexing.HexDevice;
 import cn.hexing.HexStringUtil;
+import cn.hexing.dlt645.CommServer;
+import cn.hexing.dlt645.HexClient645API;
 import cn.hexing.dlt645.SendFrameTypes;
 import cn.hexing.dlt645.iprotocol.IFrame;
 import cn.hexing.dlt645.model.ReceiveModel;
@@ -175,54 +177,47 @@ public class CommOpticalSerialPort extends AbsCommAction {
         delay_occurZJ = false;
         int size;
         int Index = 0;
+        SystemClock.sleep(SleepT);
         startTimer(WaitT);
         try {
-
             while (!delay_occurZJ) {
                 if (mInputStream.available() > 0) {
                     size = mInputStream.read(rBuffer);// 刚开始为-1
-
                     if (size > 0) {
+                        //System.out.println("test Rec:" + HexStringUtil.bytesToHexString(rBuffer));
                         for (int i = 0; i < size; i++) {
-                            rtnByt[Index] = rBuffer[i];
-                            Index++;
+                            if (Index == 0 && (rBuffer[0] == 0x00)) {
+                                //去除 字节 0 的数据
+                                rBuffer = HexStringUtil.removeBytes(rBuffer, 0, 0);
+                                size -= 1;
+                                i -= 1;
+                            } else {
+                                rtnByt[Index] = rBuffer[i];
+                                Index++;
+                            }
                         }
 
                         if (byteLen > 0 && Index >= byteLen) {
                             delay_occurZJ = true;
+                            stopTimer();
                             System.out.println(TAG + "||满足字节size结束");
                             break;
                         }
-                        /**
-                         * 验证是否 8D0A 结束
-                         * 握手帧和波特率 该标志作为结束
-                         */
-                        if (Index > 1 && rtnByt[Index - 1] == 0x0a) {
-                            if ((rtnByt[Index - 2] & 0xff) == 0x8d) {
-                                delay_occurZJ = true;
-                                System.out.println(TAG + "||满足8D0A结束");
-                                break;
-                            }
-                        }
 
-                        /**
-                         * 正常 以 7E开头 7E结束 byte[] 下标2 代表字节长度
-                         */
-
-                        if (Index > 1 && (rtnByt[Index - 1] & 0xff) == 0x7e) {
-                            byteData = Arrays.copyOf(rtnByt, Index);
-                            if (byteData.length > 2) {
-                                int hexLen = byteData[2] & 0xff;
-                                int recLen = (byteData.length - 2) & 0xff;
-                                //System.out.println(TAG + "||" + hexLen + "||" + recLen);
-                                if (hexLen == recLen) {
-                                    delay_occurZJ = true;
-                                    System.out.println(TAG + "||满足7E开头7E结束");
-                                    break;
+                        if (Index > 3) {
+                            int len;
+                            for (int m = 0; m < Index; m++) {
+                                if (((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x81)
+                                        || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0xA1)) {
+                                    len = rtnByt[m + 2] & 0xff;
+                                    if (Index - m - 2 >= len) {
+                                        delay_occurZJ = true;
+                                        stopTimer();
+                                        break;
+                                    }
                                 }
                             }
                         }
-
                     }
 
                 }
@@ -231,7 +226,9 @@ public class CommOpticalSerialPort extends AbsCommAction {
             if (Index > 0) {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
-                System.out.println("Rec:" + res);
+                if (HexClient645API.getDebugMode()) {
+                    System.out.println("Rec:" + res);
+                }
             }
 
 
@@ -297,7 +294,9 @@ public class CommOpticalSerialPort extends AbsCommAction {
             if (Index > 0) {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
-                System.out.println("Rec:" + res);
+                if (HexClient645API.getDebugMode()) {
+                    System.out.println("Rec:" + res);
+                }
             }
 
 

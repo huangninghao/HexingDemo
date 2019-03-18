@@ -1,7 +1,6 @@
 package cn.hexing.dlt645.comm;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 import cn.hexing.HexStringUtil;
 import cn.hexing.dlt645.FrameParameters;
@@ -9,7 +8,6 @@ import cn.hexing.dlt645.MeterDataTypes;
 import cn.hexing.dlt645.NotImplementedException;
 import cn.hexing.dlt645.SendFrameTypes;
 import cn.hexing.dlt645.c645.C645ZigbeeFrame;
-import cn.hexing.dlt645.check.FrameCheckerFilterTypes;
 import cn.hexing.dlt645.model.ReceiveModel;
 import cn.hexing.iComm.ICommunicator;
 
@@ -87,25 +85,74 @@ public class C645ZigbeeCollector extends CommOpticalSerialPort implements ICommu
     @Override
     public ReceiveModel Read(ReceiveModel model, String dateTimeHexString) {
         byte controlCode = 0x01;
-        //byte expectControlCode = (byte) 0x81;
+        byte expectControlCode = (byte) 0x81;
         byte[] sendTypeData = HexStringUtil.GetIntegerBytes(model.getReadType(), 2);
         byte[] sendParaData = HexStringUtil.hexToByte(dateTimeHexString);
 
         int sendLen = sendTypeData.length + sendParaData.length;
         model.controlCode = controlCode;
+        model.expectControlCode = expectControlCode;
         model.sendData = new byte[sendLen];
         System.arraycopy(sendTypeData, 0, model.sendData, 0, sendTypeData.length);
         System.arraycopy(sendParaData, 0, model.sendData, sendTypeData.length, sendParaData.length);
-        //model.maxWaitTime = 10 * 1000;
 
         model = TransmitData(model);
-
         return model;
     }
 
     @Override
-    public ReceiveModel ReadDay(@MeterDataTypes.ReadDataTypes int type, String dateTimeHexString) {
-        return new ReceiveModel();
+    public ReceiveModel ReadDay(ReceiveModel model, String dateTimeHexString) {
+        byte controlCode = (byte) 0x01;
+        byte expectControlCode = (byte) 0x81;
+        byte exeControlCode = (byte) 0xA1;
+        byte[] sendTypeData = HexStringUtil.GetIntegerBytes(model.getReadType(), 2);
+        byte[] receivedData = new byte[0];
+
+        boolean isOK = true;
+        int dataBlockNum = 0;
+        int num = 0;
+        byte[] tempByte;
+        while (isOK) {
+            byte[] dataLen = HexStringUtil.GetIntegerBytes(dataBlockNum, 2);
+            byte[] sendParaData = HexStringUtil.hexToByte(dateTimeHexString);
+            model.sendData = new byte[0];
+            model.sendData = HexStringUtil.addBytes(model.sendData, sendTypeData);
+
+            model.sendData = HexStringUtil.addBytes(model.sendData, dataLen);
+
+            model.sendData = HexStringUtil.addBytes(model.sendData, sendParaData);
+
+            model.expectControlCode = expectControlCode;
+            model.controlCode = controlCode;
+            model.exeControlCode = exeControlCode;
+
+            model = TransmitData(model);
+            if (model.isSuccess && model.recBytes.length > 0) {
+
+                if (model.controlCode == model.exeControlCode) {
+                    receivedData = HexStringUtil.addBytes(receivedData, model.recBytes);
+                    isOK = true;
+                    dataBlockNum++;
+                }
+                if (model.controlCode == model.expectControlCode) {
+                    /////////////////////////////////////////////////
+                    //add by yfb 2016-10-10
+                    //新增协议解析，拼接情况，去掉第二帧（甚至更多）数据区前5个字节 (0xB0 0xF0 0x00 0x00 0x14)
+                    tempByte = model.recBytes;
+                    if (num > 0) {
+                        tempByte = HexStringUtil.removeBytes(tempByte, 0, 4);
+                    }
+                    receivedData = HexStringUtil.addBytes(receivedData, tempByte);
+                    isOK = false;
+                }
+                num++;
+            } else {
+                isOK = false;
+            }
+        }
+
+        model.recBytes = receivedData;
+        return model;
     }
 
     @Override
@@ -125,11 +172,11 @@ public class C645ZigbeeCollector extends CommOpticalSerialPort implements ICommu
 
         byte[] sendTypeData = HexStringUtil.GetIntegerBytes(type, 2);
         int sendLen = sendTypeData.length + writeData.length + passwordBytes.length;
-
+        model.setReadType(type);
         model.controlCode = controlCode;
         //model.maxWaitTime = 10 * 1000;
         model.sendData = new byte[sendLen];
-
+        model.expectControlCode = expectControlCode;
         System.arraycopy(sendTypeData, 0, model.sendData, 0, sendTypeData.length);
         System.arraycopy(passwordBytes, 0, model.sendData, sendTypeData.length, passwordBytes.length);
         System.arraycopy(writeData, 0, model.sendData, sendTypeData.length + passwordBytes.length, writeData.length);
@@ -184,7 +231,7 @@ public class C645ZigbeeCollector extends CommOpticalSerialPort implements ICommu
             model.sendData = HexStringUtil.hexToByte(ssSendFrame.GetSendFrame(sendData, ssSendFrameType));
             model.isSend = sendByt(model.sendData);
             if (model.isSend) {
-                model.recBytes = receiveByt(model.sleepTime, model.maxWaitTime);
+                model.recBytes = receiveByt(model.sleepTime, model.maxWaitTime, model.receiveByteLen);
                 byte[] meterByte = new byte[0];
                 switch (model.getReadType()) {
                     case MeterDataTypes.ReadEthernet_v1:
@@ -195,6 +242,8 @@ public class C645ZigbeeCollector extends CommOpticalSerialPort implements ICommu
                     case MeterDataTypes.ReadInstantaneous:
                     case MeterDataTypes.ReadInstantaneous_M:
                     case MeterDataTypes.SetupMode:
+                    case MeterDataTypes.ReadDayBill:
+                    case MeterDataTypes.ReadPre:
                         if (model.recBytes.length > 10) {
                             // 7E 0007 8B01 0000 00 00 00 73  回复第一帧
                             // 注： 8B01  (Frame Type： 定值0x8B Frame ID:  定值0x01)
@@ -219,20 +268,24 @@ public class C645ZigbeeCollector extends CommOpticalSerialPort implements ICommu
                             }
                             if (isSucc) {
                                 byte[] copyByte = Arrays.copyOf(model.recBytes, model.recBytes.length);
-                                int n = model.controlCode == 0x04 ? 0x84 : 0x81; //0x04 是write
+                                // int n = model.controlCode == 0x04 ? 0x84 : 0x81; //0x04 是write
                                 //645 协议 验证
                                 for (int j = 0; j < copyByte.length; j++) {
-                                    if (((copyByte[j] & 0xff) == 0x68) &&
-                                            ((copyByte[j + 1] & 0xff) == n)) {
-                                        len = copyByte[j + 2] & 0xff;//表字节长度
-                                        model.isSuccess = true;
-                                        if (len > 0) {
-                                            meterByte = new byte[len];
-                                            System.arraycopy(copyByte, j + 3, meterByte, 0, len);
-                                        } else {
-                                            model.recBytes = new byte[0];
+                                    if ((copyByte[j] & 0xff) == 0x68) {
+                                        if (copyByte[j + 1] == model.expectControlCode) {
+                                            model.controlCode = model.expectControlCode;
+                                            len = copyByte[j + 2] & 0xff;//表字节长度
+                                            meterByte = HexStringUtil.getBytes(copyByte, j + 3, len);
+                                            model.isSuccess = true;
+                                            break;
+                                        } else if (copyByte[j + 1] == model.exeControlCode) {
+                                            //0xA1
+                                            model.controlCode = model.exeControlCode;
+                                            len = copyByte[j + 2] & 0xff;//表字节长度
+                                            meterByte = HexStringUtil.getBytes(copyByte, j + 3, len);
+                                            model.isSuccess = true;
+                                            break;
                                         }
-                                        break;
                                     }
                                 }
 

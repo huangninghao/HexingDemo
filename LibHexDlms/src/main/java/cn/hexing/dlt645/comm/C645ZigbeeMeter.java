@@ -94,7 +94,7 @@ public class C645ZigbeeMeter extends CommOpticalSerialPort implements ICommunica
         model.sendData = new byte[sendLen];
         System.arraycopy(sendTypeData, 0, model.sendData, 0, sendTypeData.length);
         System.arraycopy(sendParaData, 0, model.sendData, sendTypeData.length, sendParaData.length);
-        model.maxWaitTime = 8000;
+        //model.maxWaitTime = 8000;
         model = TransmitData(model);
         if (!model.isSuccess) {
             model.errorMsg = "Wrong Return Control Code=" + expectControlCode + "||controlCode=" + controlCode;
@@ -103,13 +103,12 @@ public class C645ZigbeeMeter extends CommOpticalSerialPort implements ICommunica
     }
 
     @Override
-    public ReceiveModel ReadDay(@MeterDataTypes.ReadDataTypes int type, String dateTimeHexString) {
+    public ReceiveModel ReadDay(ReceiveModel model, String dateTimeHexString) {
 
-        ReceiveModel model = new ReceiveModel();
         byte controlCode = (byte) 0x01;
-        byte expectControlCode = (byte) 0x81;
-        byte exeControlCode = (byte) 0xA1;
-        byte[] sendTypeData = HexStringUtil.GetIntegerBytes(type, 2);
+        byte expectControlCode = (byte) 0x81; //68 81 结束
+        byte exeControlCode = (byte) 0xA1; //68 A1后续帧标识
+        byte[] sendTypeData = HexStringUtil.GetIntegerBytes(model.getReadType(), 2);
         byte[] sendParaData = HexStringUtil.hexToByte(dateTimeHexString);
         int sendLen = sendTypeData.length + sendParaData.length;
         model.controlCode = controlCode;
@@ -117,8 +116,7 @@ public class C645ZigbeeMeter extends CommOpticalSerialPort implements ICommunica
         System.arraycopy(sendTypeData, 0, model.sendData, 0, sendTypeData.length);
         System.arraycopy(sendParaData, 0, model.sendData, sendTypeData.length, sendParaData.length);
 
-        model.maxWaitTime = 5000;
-        model.setReadType(type);
+        //model.maxWaitTime = 5000;
         model.expectControlCode = expectControlCode;
         model.controlCode = controlCode;
 
@@ -127,7 +125,7 @@ public class C645ZigbeeMeter extends CommOpticalSerialPort implements ICommunica
         if (model.isSuccess) {
             received = Arrays.copyOf(model.recBytes, model.recBytes.length);
             for (int i = 0; i < 5; i++) {
-                sendTypeData = HexStringUtil.GetIntegerBytes(type, 2);
+                sendTypeData = HexStringUtil.GetIntegerBytes(model.getReadType(), 2);
                 // byte[] datalenn = HexStringUtil.GetIntegerBytes(3, 2);
                 sendParaData = HexStringUtil.hexToByte(dateTimeHexString);
                 sendLen = sendTypeData.length + sendParaData.length;
@@ -222,9 +220,10 @@ public class C645ZigbeeMeter extends CommOpticalSerialPort implements ICommunica
         } catch (NotImplementedException e) {
             e.printStackTrace();
         }
+        model.isSuccess = false;
         model.isSend = sendByt(sendBytes);
         if (model.isSend) {
-            model.recBytes = receiveByt(0, model.maxWaitTime);
+            model.recBytes = receiveByt(model.sleepTime, model.maxWaitTime, model.receiveByteLen);
             if (model.recBytes.length > 0) {
                 //controlCode = base.Checker.GetFrameParameter(FrameParameters.C645ControlCode)[0];
                 byte[] copyByte = Arrays.copyOf(model.recBytes, model.recBytes.length);

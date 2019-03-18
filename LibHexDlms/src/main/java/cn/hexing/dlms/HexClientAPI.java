@@ -624,7 +624,7 @@ public class HexClientAPI {
         framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
         framePara.setHandWaitTime((int) this.handWaitTime);
         framePara.setRecDataType(dataType);
-        framePara.setRecDataType(dataType);
+        framePara.setWriteDataType(dataType);
         switch (this.action) {
             case READ:
                 result = commServer.read(framePara, iComm);
@@ -644,6 +644,7 @@ public class HexClientAPI {
         }
         return result;
     }
+
 
     /**
      * 简单的执行操作 前提是串口已经打开 并且不是第一帧

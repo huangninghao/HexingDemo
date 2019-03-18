@@ -14,7 +14,7 @@ public interface ICommunicator {
 
     ReceiveModel Read(ReceiveModel model, String dateTimeHexString);//从采集器中读
 
-    ReceiveModel ReadDay(@MeterDataTypes.ReadDataTypes int type, String dateTimeHexString);//从采集器中读
+    ReceiveModel ReadDay(ReceiveModel model, String dateTimeHexString);//从采集器中读
 
     ReceiveModel ContinueRead(@MeterDataTypes.ReadDataTypes int type, String dateTimeHexString); // BaseCommunicatorContinueChecker checker
 

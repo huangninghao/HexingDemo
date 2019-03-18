@@ -17,10 +17,13 @@ public class ReceiveModel {
     public boolean isSend = false; //发送结果
     public byte[] recBytes = new byte[0]; //接收数据
     public byte controlCode = 0x00; //控制码
-    public byte expectControlCode = 0x00;
+    public byte expectControlCode = 0x00;//期望值
+    public byte exeControlCode = 0x00;//数据块标识
+
     public String errorMsg = "";
     public int errorCode = -1; //错误码
     public int maxWaitTime = 3000;//最大等待时间
+    public int receiveByteLen = 0;//接收字节数 停止接收
     public List<Integer> checkFilter = new ArrayList<>();//帧过滤
     public int sleepTime = 0;//睡眠时间
     public byte[] sendData = new byte[0];//待发送数据帧

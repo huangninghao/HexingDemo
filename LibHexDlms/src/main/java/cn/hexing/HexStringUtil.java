@@ -4,9 +4,12 @@ import android.text.TextUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -191,6 +194,78 @@ public class HexStringUtil {
         return result;
     }
 
+    /**
+     * byte[] add
+     *
+     * @param source   原数组
+     * @param addBytes 新加
+     * @return 最终
+     */
+    public static byte[] addBytes(byte[] source, byte[] addBytes) {
+        byte[] result = new byte[source.length + addBytes.length];
+        byte[] temp = source;
+        System.arraycopy(temp, 0, result, 0, temp.length);
+        temp = addBytes;
+        System.arraycopy(temp, 0, result, source.length, temp.length);
+        return result;
+    }
+
+    /**
+     * byte[] add
+     *
+     * @param source  原数组
+     * @param addByte 新加
+     * @return 最终
+     */
+    public static byte[] addBytes(byte[] source, byte addByte) {
+        byte[] result = new byte[source.length + 1];
+        byte[] temp = Arrays.copyOf(source, source.length);
+        System.arraycopy(temp, 0, result, 0, source.length);
+        result[result.length - 1] = addByte;
+        return result;
+    }
+
+    /**
+     * byte[] remove
+     *
+     * @param source 数据源
+     * @param sPos   开始位置
+     * @param ePos   结束位置
+     * @return byte[]
+     */
+    public static byte[] removeBytes(byte[] source, int sPos, int ePos) {
+        if (ePos >= source.length || ePos < sPos) {
+            return source;
+        }
+        int pos = 0;
+        byte[] result = new byte[source.length - (ePos - sPos + 1)];
+        for (int m = 0; m < source.length; m++) {
+            if (m < sPos || m > ePos) {
+                result[pos] = source[m];
+                pos++;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * byte[] 获取
+     *
+     * @param source 数据源
+     * @param pos    起始位置
+     * @param len    取多少个字节
+     * @return 新的byte[]
+     */
+    public static byte[] getBytes(byte[] source, int pos, int len) {
+        if (pos >= source.length || len >= source.length) {
+            return source;
+        }
+        byte[] result = new byte[len];
+        System.arraycopy(source, pos, result, 0, result.length);
+        return result;
+    }
+
+
     private static int toByte(char c) {
         byte b = (byte) "0123456789ABCDEF".indexOf(c);
         return b;
@@ -313,6 +388,26 @@ public class HexStringUtil {
                 rt += n;
         }
         return rt;
+    }
+
+    /**
+     * int字符串转换 16进制数据
+     *
+     * @param str string
+     * @return String
+     */
+    public static String toHexString(String str) {
+        StringBuilder stringBuilder = new StringBuilder();
+        int len = str.length() / 2;
+
+        if (len % 2 != 0) {
+            stringBuilder.append(str);
+        }
+        for (int m = 0; m < len; m++) {
+
+        }
+
+        return stringBuilder.toString();
     }
 
     public static String toHex(int n) {
@@ -594,5 +689,17 @@ public class HexStringUtil {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         Date curDate = new Date(System.currentTimeMillis());
         return sdf.format(curDate);
+    }
+
+    /**
+     * 该方法主要使用正则表达式来判断字符串中是否包含字母
+     * @author fenggaopan 2015年7月21日 上午9:49:40
+     * @param cardNum 待检验的原始卡号
+     * @return 返回是否包含
+     */
+    public static boolean judgeContainsStr(String cardNum) {
+        String regex=".*[a-zA-Z]+.*";
+        Matcher m= Pattern.compile(regex).matcher(cardNum);
+        return m.matches();
     }
 }

@@ -22,7 +22,7 @@ public class ZigbeeCommandExecutor extends CommOpticalSerialPort {
         super();
     }
 
-    public ReceiveModel Write(String code, byte[] sendData,ReceiveModel model) {
+    public ReceiveModel Write(String code, byte[] sendData, ReceiveModel model) {
         model.sendData = sendData.clone();
         ZigBeeFrame zigBeeFrame = new ZigBeeFrame();
         setSsSendFrameType(SendFrameTypes.ZigbeeATCommand);
@@ -33,7 +33,7 @@ public class ZigbeeCommandExecutor extends CommOpticalSerialPort {
             model.sendData = HexStringUtil.hexToByte(zigBeeFrame.GetSendFrame(sendData, SendFrameTypes.ZigbeeATCommand));
             model.isSend = sendByt(model.sendData);
             if (model.isSend) {
-                model.recBytes = receiveByt(0, model.maxWaitTime);
+                model.recBytes = receiveByt(0, model.maxWaitTime, model.receiveByteLen);
                 if (model.recBytes.length < 8) {
                     model.isSuccess = false;
                     return model;
@@ -66,7 +66,7 @@ public class ZigbeeCommandExecutor extends CommOpticalSerialPort {
             model.sendData = HexStringUtil.hexToByte(ssSendFrame.GetSendFrame(new byte[0], ssSendFrameType));
             model.isSend = sendByt(model.sendData);
             if (model.isSend) {
-                model.recBytes = receiveByt(0, model.maxWaitTime);
+                model.recBytes = receiveByt(model.sleepTime, model.maxWaitTime, model.receiveByteLen);
             }
         } catch (NotImplementedException e) {
             e.printStackTrace();

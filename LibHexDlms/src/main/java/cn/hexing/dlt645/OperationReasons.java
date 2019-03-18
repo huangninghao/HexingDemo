@@ -72,9 +72,9 @@ public class OperationReasons {
      */
     public static String getRelayStatus(String value) {
         switch (value) {
-            case "00":
+            case "5F":
                 return OperationReasons.RelayStatusConnect;
-            case "01":
+            case "50":
                 return OperationReasons.RelayStatusDisconnect;
             default:
                 return value;

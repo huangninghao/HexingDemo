@@ -3,8 +3,10 @@ package cn.hexing.dlt645;
 
 import android.os.SystemClock;
 import android.text.TextUtils;
+import android.util.Log;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -15,6 +17,7 @@ import cn.hexing.HexAction;
 import cn.hexing.HexDevice;
 import cn.hexing.HexStringUtil;
 import cn.hexing.ParaConfig;
+import cn.hexing.dlms.HexDataFormat;
 import cn.hexing.dlms.IHexListener;
 import cn.hexing.dlms.RS232Controller;
 import cn.hexing.dlt645.check.FrameCheckerFilterTypes;
@@ -68,6 +71,13 @@ public class HexClient645API {
             instance = new HexClient645API();
         }
         return instance;
+    }
+
+    public static boolean getDebugMode() {
+        if (instance == null) {
+            return false;
+        }
+        return instance.debugMode;
     }
 
     public static HexClient645API getInstance(ParaConfig config) {
@@ -185,13 +195,16 @@ public class HexClient645API {
             TranXADRAssist xadrAssist;
             ReceiveModel model = new ReceiveModel();
             model.maxWaitTime = assist.c645Bean.maxWaitTime;
+            model.sleepTime = assist.c645Bean.waitReceiveTime;
             int pos = 0;
             switch (assist.c645Bean.getMeterDataType645Id()) {
                 case MeterDataTypes.CustomerSearchNetWork:
                     assists = new ArrayList<>();
                     //maxWaitTime 2000
                     GlobalCommunicators.zigbeeCommandExecutor.Write("SR", new byte[0], model);
-                    System.out.println("SR action over");
+                    if (debugMode) {
+                        System.out.println("SR action over");
+                    }
                     List<ReceiveModel> models = GlobalCommunicators.zigbeeCommandExecutor.ReadNetWork();
                     for (ReceiveModel item : models) {
                         xadrAssist = assist.clone();
@@ -262,7 +275,7 @@ public class HexClient645API {
                     model = GlobalCommunicators.c645ZigbeeCollector.Write(MeterDataTypes.SetupMode, GlobalCommunicators.CollectorPasswordBytes, new byte[]{0x02}, model);
                     System.out.println(TAG + "Run Meter Search end  ..." + model.isSend);
                     assist.recBytes = model.recBytes;
-                    assist.aResult = model.isSend;
+                    assist.aResult = model.isSuccess;
                     listener.onSuccess(assist, 0);
                     break;
                 case MeterDataTypes.CustomerCollGPRS:
@@ -331,7 +344,9 @@ public class HexClient645API {
                     System.out.println("Enter Power-On Mode Start ...");
                     int i = 0;
                     for (String meter : assist.c645Bean.meterNumberList) {
-                        System.out.println("Read Enter Power-On Mode||" + assist.c645Bean.collectorNumber + "--" + meter);
+                        if (debugMode) {
+                            System.out.println("Read Enter Power-On Mode||" + assist.c645Bean.collectorNumber + "--" + meter);
+                        }
                         byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
                         byte[] newByte = HexStringUtil.reverse(bytes);
                         GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
@@ -392,10 +407,13 @@ public class HexClient645API {
         assist.recBytes = model.recBytes;
         MeterSetupBean meterSetupBean;
         assist.value = assist.c645Bean.collectorNumber;
+        assist.aResult = model.isSuccess;
+        assist.errMsg = model.errorMsg;
         if (model.isSuccess) {
-            assist.aResult = true;
             byte[] meterList1 = model.recBytes.clone();
-            System.out.println("ReadSetupInfo2 start");
+            if (debugMode) {
+                System.out.println("ReadSetupInfo2 start");
+            }
             model.setReadType(MeterDataTypes.ReadSetupInfo2);
             model = GlobalCommunicators.c645ZigbeeCollector.Read(model);
             byte[] meterList2 = new byte[0];
@@ -413,27 +431,16 @@ public class HexClient645API {
             byte[] item = new byte[17];
             if (newMeter.length >= 17) {
                 int num = newMeter.length / 17;
-
                 for (int i = 0; i < num; i++) {
                     System.arraycopy(newMeter, i * 17, item, 0, 17);
-
-                    byte[] meterNo = new byte[6];
-                    System.arraycopy(item, 0, meterNo, 0, 6);
-                    byte[] meterRev = new byte[6];
-                    int k = 0;
-                    for (int j = meterNo.length - 1; j >= 0; j--) {
-                        meterRev[k] = meterNo[j];
-                        k++;
-                    }
+                    byte[] meterNo = HexStringUtil.getBytes(item, 0, 6);
+                    meterNo = HexStringUtil.reverse(meterNo); //反序
                     meterSetupBean = new MeterSetupBean();
-                    meterSetupBean.meterNo = HexStringUtil.bytesToHexString(meterRev);
-                    meterSetupBean.position = String.valueOf(newMeter[6]);
+                    meterSetupBean.meterNo = HexStringUtil.bytesToHexString(meterNo);
+                    meterSetupBean.position = String.valueOf(item[6]);
                     assist.c645Bean.meterSetupBeanList.add(meterSetupBean);
                 }
             }
-        } else {
-            assist.aResult = false;
-            assist.errMsg = model.errorMsg;
         }
         return assist;
     }
@@ -448,7 +455,7 @@ public class HexClient645API {
         TranXADRAssist assist = new TranXADRAssist();
         GlobalCommunicators.c645Address = "AAAAAAAAAAAA";
         GlobalCommunicators.Update();
-
+        model.receiveByteLen = 15;
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("LH", new byte[0], model);
         System.out.println("LH send finish'");
         if (!model.isSuccess) {
@@ -456,6 +463,7 @@ public class HexClient645API {
             assist.aResult = false;
             return assist;
         }
+        model.receiveByteLen = 9;
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("NR", new byte[0], model);
         System.out.println("NR send finish'");
         if (!model.isSuccess) {
@@ -463,6 +471,7 @@ public class HexClient645API {
             assist.aResult = false;
             return assist;
         }
+        model.receiveByteLen = 15;
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("SD", new byte[]{0x01}, model);
         System.out.println("SD send finish'");
         if (!model.isSuccess) {
@@ -470,6 +479,7 @@ public class HexClient645API {
             assist.aResult = false;
             return assist;
         }
+        model.receiveByteLen = 15;
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("WR", new byte[0], model);
         System.out.println("WR send finish'");
         if (!model.isSuccess) {
@@ -477,6 +487,7 @@ public class HexClient645API {
             assist.aResult = false;
             return assist;
         }
+        model.receiveByteLen = 9;
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("ID", HexStringUtil.hexToByte(HexStringUtil.padRight(collectorNo, 16, '0')), model);
         System.out.println("ID send finish'");
         if (!model.isSuccess) {
@@ -536,15 +547,18 @@ public class HexClient645API {
         int i = 0;
         MeterRelayBean item;
         for (String meter : assist.c645Bean.meterNumberList) {
-
-            System.out.println(meter + ":" + "Position" + ":" + String.valueOf(i));
+            if (debugMode) {
+                System.out.println(meter + ":" + "Position" + ":" + String.valueOf(i));
+            }
             byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
             byte[] newByte = HexStringUtil.reverse(bytes);
             GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
             GlobalCommunicators.Update();
             model.setReadType(MeterDataTypes.ReadRelayStatus);
             model = GlobalCommunicators.c645ZigbeeMeter.Read(model);
-
+            assist.errMsg = model.errorMsg;
+            assist.aResult = model.isSuccess;
+            assist.recBytes = model.recBytes;
             if (model.isSuccess) {
                 item = new MeterRelayBean();
                 item.collectorTime = HexStringUtil.getNowTime();
@@ -603,7 +617,6 @@ public class HexClient645API {
         GlobalCommunicators.c645Address = "AAAAAAAAAAAA";
         GlobalCommunicators.Update();
         System.out.println("Disconnect Start : " + collectorNo + " ...");
-
         model = GlobalCommunicators.zigbeeCommandExecutor.Write("LN", new byte[0], model);
         assist.errMsg = model.errorMsg;
         assist.aResult = model.isSuccess;
@@ -710,7 +723,9 @@ public class HexClient645API {
             System.out.println(TAG + "write gprs parameter is null");
             return assist;
         }
-        System.out.println(TAG + "WriteGPRSParameters||" + assist.c645Bean.collectorNumber);
+        if (debugMode) {
+            System.out.println(TAG + "WriteGPRSParameters||" + assist.c645Bean.collectorNumber);
+        }
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
         if (assist.c645Bean.gprsBean == null) {
@@ -791,7 +806,9 @@ public class HexClient645API {
                     singlePhase = true;
                 }
             }
-
+            assist.recBytes = model.recBytes;
+            assist.errMsg = model.errorMsg;
+            assist.aResult = model.isSuccess;
             if (model.isSuccess && model.recBytes.length > 0) {
                 byte[] receiveData = model.recBytes;
                 if (receiveData.length <= 5) {
@@ -910,7 +927,9 @@ public class HexClient645API {
      * @return TranXADRAssist
      */
     private TranXADRAssist readCLTPanID(TranXADRAssist assist, ReceiveModel model) {
-        System.out.println(TAG + "Read ReadCLTPanID=" + assist.c645Bean.collectorNumber);
+        if (debugMode) {
+            System.out.println(TAG + "Read ReadCLTPanID=" + assist.c645Bean.collectorNumber);
+        }
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
 
@@ -931,7 +950,9 @@ public class HexClient645API {
      * @return TranXADRAssist
      */
     private TranXADRAssist writeCLTPanID(TranXADRAssist assist, ReceiveModel model) {
-        System.out.println(TAG + "Write WriteCLTPanID||" + assist.c645Bean.collectorNumber);
+        if (debugMode) {
+            System.out.println(TAG + "Write WriteCLTPanID||" + assist.c645Bean.collectorNumber);
+        }
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
         byte[] sendBytes = HexStringUtil.reverse(HexStringUtil.hexToByte(assist.c645Bean.writeData));
@@ -951,7 +972,9 @@ public class HexClient645API {
      * @return TranXADRAssist
      */
     public TranXADRAssist writeEthernetParameters(TranXADRAssist assist, ReceiveModel model) throws Exception {
-        System.out.println(TAG + "WriteEthernetParameters||" + assist.c645Bean.collectorNumber);
+        if (debugMode) {
+            System.out.println(TAG + "WriteEthernetParameters||" + assist.c645Bean.collectorNumber);
+        }
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
         byte[] byteList = new byte[18];
@@ -1006,7 +1029,9 @@ public class HexClient645API {
      * @return TranXADRAssist
      */
     private TranXADRAssist readEthernet(TranXADRAssist assist) {
-        System.out.println(TAG + "ReadEthernetParameters||" + assist.c645Bean.collectorNumber);
+        if (debugMode) {
+            System.out.println(TAG + "ReadEthernetParameters||" + assist.c645Bean.collectorNumber);
+        }
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
         ReceiveModel model = new ReceiveModel();
@@ -1014,8 +1039,8 @@ public class HexClient645API {
         model = GlobalCommunicators.c645ZigbeeCollector.Read(model);//ReadEthernet_v1
         assist.errMsg = model.errorMsg;
         assist.recBytes = model.recBytes;
+        assist.aResult = model.isSuccess;
         if (!model.isSuccess) {
-            assist.aResult = false;
             return assist;
         }
         assist.c645Bean.ethernetBean = new EthernetBean();
@@ -1105,30 +1130,65 @@ public class HexClient645API {
      * @return TranXADRAssist
      */
     private TranXADRAssist readDayBlock(TranXADRAssist assist, ReceiveModel model) {
+
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
         assist.c645Bean.dayBlockBean.clear();
+        model.setReadType(MeterDataTypes.ReadDayBill);
         int i = 0;
         for (String meter : assist.c645Bean.meterNumberList) {
-            System.out.println(TAG + "Read daily frozen energy||" + assist.c645Bean.collectorNumber + "||meter=" + meter);
+            if (debugMode) {
+                System.out.println(TAG + "Read daily frozen energy||" + assist.c645Bean.collectorNumber + "||meter=" + meter);
+            }
             model.setReadType(MeterDataTypes.ReadDayBill);
-            String meterAddress;// = HexStringUtil.padLeft(meter.substring(0, 11), 12, '0').substring(1);
 
             byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
             byte[] newByte = HexStringUtil.reverse(bytes);
-            meterAddress = HexStringUtil.bytesToHexString(newByte);
+            String meterAddress = HexStringUtil.bytesToHexString(newByte);
+            String startTime = assist.c645Bean.startTime.replace("-", "").replace(" ", "").replace(":", "");
+            String endTime = assist.c645Bean.endTime.replace("-", "").replace(" ", "").replace(":", "");
+            //2019-01-23 12:00
+            startTime = startTime.substring(2, 8) + "0000";
+            endTime = endTime.substring(2, 8) + "0000";
+
             //时间拼接待完成
-            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(MeterDataTypes.ReadDayBill, meterAddress);
+            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(model, meterAddress + startTime + endTime);
+            assist.aResult = model.isSuccess;
+            assist.errMsg = model.errorMsg;
             if (model.isSuccess) {
+                assist.c645Bean.dayBlockBean.clear();
+
                 byte[] data = model.recBytes;
                 byte[] temp;
 
                 byte[] itemBlock;
+
+                if (data.length > 5 && data.length < 101) {
+                    itemBlock = HexStringUtil.removeBytes(data, 0, 4);
+                    while (itemBlock.length >= 32) {
+                        DayBlockBean dayItem = new DayBlockBean();
+                        dayItem.collectorTime = HexStringUtil.getNowTime();
+                        dayItem.collectorNo = assist.c645Bean.collectorNumber;
+                        dayItem.meterNo = meter;
+                        dayItem.meterPosition = String.valueOf(i);
+
+                        dayItem.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
+                        temp = HexStringUtil.getBytes(itemBlock, 12, 4);
+                        dayItem.forwardActiveData = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+
+                        if (HexStringUtil.judgeContainsStr(dayItem.forwardActiveData)) {
+                            dayItem.forwardActiveData = new StringBuilder(dayItem.forwardActiveData).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(dayItem.forwardActiveData, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            dayItem.forwardActiveData = parseScale(longVal, -2);
+                        }
+                        assist.c645Bean.dayBlockBean.add(dayItem);
+
+                        itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 31);
+                    }
+                }
                 while (data.length >= 101) {
-
-                    itemBlock = new byte[101 - 5];
-                    System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
-
+                    itemBlock = HexStringUtil.removeBytes(data, 0, 4);
                     while (itemBlock.length >= 32) {
                         DayBlockBean dayItem = new DayBlockBean();
                         dayItem.collectorTime = HexStringUtil.getNowTime();
@@ -1141,10 +1201,7 @@ public class HexClient645API {
                         if (!HexStringUtil.byteToString(data[0]).equals(strNo)) {
                             for (int k = 0; k < itemBlock.length; k++) {
                                 if (HexStringUtil.byteToString(itemBlock[k]).equals(strNo)) {
-                                    //dayList.RemoveRange(0, k);
-                                    temp = new byte[itemBlock.length - k];
-                                    System.arraycopy(itemBlock, k, temp, 0, temp.length);
-                                    itemBlock = Arrays.copyOf(temp, temp.length);
+                                    itemBlock = HexStringUtil.removeBytes(itemBlock, 0, k - 1);
                                     aa = 1;
                                     break;
                                 }
@@ -1152,28 +1209,27 @@ public class HexClient645API {
                         }
 
                         dayItem.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
-                        temp = new byte[4];
-                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+                        temp = HexStringUtil.getBytes(itemBlock, 12, 4);
                         dayItem.forwardActiveData = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        if (HexStringUtil.judgeContainsStr(dayItem.forwardActiveData)) {
+                            dayItem.forwardActiveData = new StringBuilder(dayItem.forwardActiveData).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(dayItem.forwardActiveData, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            dayItem.forwardActiveData = parseScale(longVal, -2);
+                        }
                         if (aa == 0) {
-                            temp = new byte[itemBlock.length - 32];
-                            System.arraycopy(itemBlock, 32, temp, 0, temp.length);
-                            itemBlock = Arrays.copyOf(temp, temp.length);
+                            itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 31);
                         } else if (aa == 1) {
-                            //dayList.RemoveRange(0, 27);
-                            temp = new byte[itemBlock.length - 27];
-                            System.arraycopy(itemBlock, 27, temp, 0, temp.length);
-                            itemBlock = Arrays.copyOf(temp, temp.length);
+                            itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 26);
                             aa = 0;
                         }
 
                         assist.c645Bean.dayBlockBean.add(dayItem);
                     }
 
-                    temp = new byte[data.length - 101];
-                    System.arraycopy(data, 101, temp, 0, temp.length);
-                    data = Arrays.copyOf(temp, temp.length);
+                    data = HexStringUtil.removeBytes(data, 0, 100);
                 }
+
             }
             listener.onSuccess(assist, i);
             i++;
@@ -1191,89 +1247,101 @@ public class HexClient645API {
     public TranXADRAssist readDayBlockPrePayment(TranXADRAssist assist, ReceiveModel model) {
         GlobalCommunicators.c645Address = HexStringUtil.padLeft(assist.c645Bean.collectorNumber, 12, 'F');
         GlobalCommunicators.Update();
-        assist.c645Bean.prePaymentBeanList.clear();
+        model.setReadType(MeterDataTypes.ReadPre);
         int i = 0;
         for (String meter : assist.c645Bean.meterNumberList) {
+
+            assist.c645Bean.prePaymentBeanList.clear();
             model.setReadType(MeterDataTypes.ReadPre);
-            String meterAddress;// = HexStringUtil.padLeft(meter.substring(0, 11), 12, '0').substring(1);
             byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
             byte[] newByte = HexStringUtil.reverse(bytes);
-            meterAddress = HexStringUtil.bytesToHexString(newByte);
-            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(MeterDataTypes.ReadPre, meterAddress);
+            String meterAddress = HexStringUtil.bytesToHexString(newByte);
+            String startTime = assist.c645Bean.startTime.replace("-", "").replace(" ", "").replace(":", "");
+            String endTime = assist.c645Bean.endTime.replace("-", "").replace(" ", "").replace(":", "");
+            //2019-01-23 12:00
+            startTime = startTime.substring(2, 8) + "0000";
+            endTime = endTime.substring(2, 8) + "0000";
+
+            model = GlobalCommunicators.c645ZigbeeCollector.ReadDay(model, meterAddress + startTime + endTime);
+            assist.errMsg = model.errorMsg;
+            assist.aResult = model.isSuccess;
             if (model.isSuccess) {
                 byte[] data = model.recBytes;
                 byte[] temp;
                 byte[] itemBlock;
 
                 while (data.length >= 122) {
-                    itemBlock = new byte[122 - 5];
-                    System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
-
+                    itemBlock = HexStringUtil.removeBytes(data, 0, 4);
                     while (itemBlock.length >= 28) {
                         if ((itemBlock[0] & 0xff) == 0xBF || (itemBlock[1] & 0xff) == 0xF0 ||
                                 (itemBlock[2] & 0xff) == 0x01 || (itemBlock[3] & 0xff) == 0x00
                                 || (itemBlock[4] & 0xff) == 0x0F) {
-                            temp = new byte[itemBlock.length - 5];
-                            System.arraycopy(data, 5, temp, 0, temp.length);
-                            itemBlock = Arrays.copyOf(temp, temp.length);
+                            itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 4);
                         }
                         PrePaymentBean daypre = new PrePaymentBean();
                         daypre.collectTime = HexStringUtil.getNowTime();
                         daypre.collectorNo = assist.c645Bean.collectorNumber;
                         daypre.meterNo = meter;
                         daypre.meterPosition = String.valueOf(i);
-                        i++;
                         daypre.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
-                        temp = new byte[4];
-                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+
+                        temp = HexStringUtil.getBytes(itemBlock, 12, 4);
                         daypre.comsumption = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        System.arraycopy(itemBlock, 16, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.comsumption)) {
+                            daypre.comsumption = new StringBuilder(daypre.comsumption).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.comsumption, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.comsumption = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 16, 4);
                         daypre.credit = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        System.arraycopy(itemBlock, 20, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.credit)) {
+                            daypre.credit = new StringBuilder(daypre.credit).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.credit, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.credit = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 20, 4);
                         daypre.surplus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        temp = new byte[1];
-                        System.arraycopy(itemBlock, 24, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.surplus)) {
+                            daypre.surplus = new StringBuilder(daypre.surplus).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.surplus, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.surplus = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 24, 1);
                         daypre.moneyStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
+                        temp = HexStringUtil.getBytes(itemBlock, 25, 1);
+                        daypre.relayStatus = OperationReasons.getRelayStatus(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
-                        System.arraycopy(itemBlock, 25, temp, 0, temp.length);
-                        daypre.relayStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        temp = HexStringUtil.getBytes(itemBlock, 26, 1);
+                        daypre.meterMode = MeterModes.GetMeterModeText(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
-                        System.arraycopy(itemBlock, 26, temp, 0, temp.length);
-                        daypre.meterMode = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
-
-                        System.arraycopy(itemBlock, 27, temp, 0, temp.length);
-                        daypre.relayOperationReason = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        temp = HexStringUtil.getBytes(itemBlock, 27, 1);
+                        daypre.relayOperationReason = OperationReasons.GetRelayOperationReason(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
 
                         assist.c645Bean.prePaymentBeanList.add(daypre);
 
-                        temp = new byte[itemBlock.length - 28];
-                        System.arraycopy(itemBlock, 28, temp, 0, temp.length);
-                        itemBlock = Arrays.copyOf(temp, temp.length);
-
-
+                        itemBlock = HexStringUtil.removeBytes(data, 0, 27);
                     }
-                    temp = new byte[data.length - 122];
-                    System.arraycopy(data, 0, temp, 0, temp.length);
-                    data = Arrays.copyOf(temp, temp.length);
+
+                    data = HexStringUtil.removeBytes(data, 0, 121);
                 }
 
                 if (data.length > 5) {
-                    i = 0;
-
-                    while (data.length >= 28) {
-                        itemBlock = new byte[28 - 5];
-                        System.arraycopy(data, 5, itemBlock, 0, itemBlock.length);
-
-                        if ((data[0] & 0xff) == 0xBF || (data[1] & 0xff) == 0xF0 || (data[2] & 0xff) == 0x01
-                                || (data[3] & 0xff) == 0x00 || (data[4] & 0xff) == 0x0F) {
-                            temp = new byte[itemBlock.length - 5];
-                            System.arraycopy(data, 5, temp, 0, temp.length);
-                            itemBlock = Arrays.copyOf(temp, temp.length);
+                    itemBlock = HexStringUtil.removeBytes(data, 0, 4);
+                    while (itemBlock.length >= 28) {
+                        if ((itemBlock[0] & 0xff) == 0xBF || (itemBlock[1] & 0xff) == 0xF0 || (itemBlock[2] & 0xff) == 0x01
+                                || (itemBlock[3] & 0xff) == 0x00 || (itemBlock[4] & 0xff) == 0x0F) {
+                            itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 4);
                         }
                         PrePaymentBean daypre = new PrePaymentBean();
                         daypre.collectTime = HexStringUtil.getNowTime();
@@ -1281,35 +1349,52 @@ public class HexClient645API {
                         daypre.meterNo = meter;
                         daypre.meterPosition = String.valueOf(i);
                         daypre.dateTime = HexStringUtil.byteToString(itemBlock[7]) + HexStringUtil.byteToString(itemBlock[8]) + HexStringUtil.byteToString(itemBlock[9]);
-                        temp = new byte[4];
-                        System.arraycopy(itemBlock, 12, temp, 0, temp.length);
+
+                        temp = HexStringUtil.getBytes(itemBlock, 12, 4);
                         daypre.comsumption = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        System.arraycopy(itemBlock, 16, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.comsumption)) {
+                            daypre.comsumption = new StringBuilder(daypre.comsumption).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.comsumption, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.comsumption = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 16, 4);
                         daypre.credit = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        System.arraycopy(itemBlock, 20, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.credit)) {
+                            daypre.credit = new StringBuilder(daypre.credit).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.credit, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.credit = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 20, 4);
                         daypre.surplus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
-                        temp = new byte[1];
-                        System.arraycopy(itemBlock, 24, temp, 0, temp.length);
+                        if (HexStringUtil.judgeContainsStr(daypre.surplus)) {
+                            daypre.surplus = new StringBuilder(daypre.surplus).insert(6, ".").toString();
+                        } else {
+                            long longVal = parseInteger(new BigInteger(daypre.surplus, 10), HexDataFormat.DOUBLE_LONG_UNSIGNED);
+                            daypre.surplus = parseScale(longVal, -2);
+                        }
+
+                        temp = HexStringUtil.getBytes(itemBlock, 24, 1);
                         daypre.moneyStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
 
+                        temp = HexStringUtil.getBytes(itemBlock, 25, 1);
+                        daypre.relayStatus = OperationReasons.getRelayStatus(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
-                        System.arraycopy(itemBlock, 25, temp, 0, temp.length);
-                        daypre.relayStatus = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        temp = HexStringUtil.getBytes(itemBlock, 26, 1);
+                        daypre.meterMode = MeterModes.GetMeterModeText(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
-                        System.arraycopy(itemBlock, 26, temp, 0, temp.length);
-                        daypre.meterMode = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
-
-                        System.arraycopy(itemBlock, 27, temp, 0, temp.length);
-                        daypre.relayOperationReason = HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp));
+                        temp = HexStringUtil.getBytes(itemBlock, 27, 1);
+                        daypre.relayOperationReason = OperationReasons.GetRelayOperationReason(HexStringUtil.bytesToHexString(HexStringUtil.reverse(temp)));
 
                         assist.c645Bean.prePaymentBeanList.add(daypre);
 
-                        temp = new byte[itemBlock.length - 28];
-                        System.arraycopy(data, 28, temp, 0, temp.length);
-                        data = Arrays.copyOf(temp, temp.length);
+                        itemBlock = HexStringUtil.removeBytes(itemBlock, 0, 27);
                     }
                 }
             }
@@ -1317,205 +1402,6 @@ public class HexClient645API {
             i++;
         }
         return assist;
-        //获取这张表task中ReadMonthFreezeElectric项的parameters参数
-//        List<byte> receivelst = null;
-//        List<byte> dayList = null;
-//        List<byte> testlist = null;
-//        MeterInfoItem Meteritem = new MeterInfoItem();
-//        GlobalCommunicators.c645Address = GlobalItems.ReadCollectorNo.PadLeft(12, 'F');
-//        GlobalCommunicators.Update();
-//        Log("RPDa Start:" + CommonClass.parameter + "");
-//        foreach (string meterNo in executeObject.InputMeterNoList)
-//        {
-//            BLL.Reportor.EventReport("Read", "Read daily frozen PrePayment", Globals.GlobalItems.CurrentCollectorNo + "--" + meterNo);
-//            string meterPostion = "";
-//            int i = 0;
-//            SetupInfoDataItem mmodel = new SetupInfoDataItem();
-//            foreach (SetupInfoDataItem item in mmodel.Select<SetupInfoDataItem>(GlobalDataBases.DBTask, mmodel.MeterNo == meterNo))
-//            {
-//                meterPostion = item.MeterPositionValue.ToString();
-//                i = int.Parse(meterPostion) + 1;
-//            }
-//            Log(meterNo + ":" + "Position" + ":" + i.ToString());
-//            byte[] receivedata;
-//            executeObject.ReadResult = GlobalCommunicators.C645ZigbeeCollector.ReadDay(MeterDataTypes.ReadPre, string.Join("", meterNo.PadLeft(12, '0').SplitInFixLength(2).Reverse().ToArray<string>()) + CommonClass.parameter, out receivedata);
-//            if (executeObject.ReadResult)
-//            {
-//                GlobalParameters.globalparameters.SaveLog(receivedata);
-//                //receivedata = test;
-//
-//                receivelst = new List<byte>();
-//                receivelst.AddRange(receivedata);
-//                if (receivelst.Count <= 5)
-//                {
-//                    Log(CommonClass.parameter + "NO DATA");
-//                }
-//                else
-//                {
-//                    //while (receivelst.Count >= 117)
-//                    while (receivelst.Count >= 122)
-//                    {
-//                        //dayList = new List<byte>(receivelst.GetRange(0, 117));
-//                        dayList = new List<byte>(receivelst.GetRange(0, 122));
-//                        //dayList.AddRange(receivelst.GetRange(0, 117));
-//                        dayList.RemoveRange(0, 5);
-//
-//                        while (dayList.Count >= 28)
-//                        {
-//                            if (dayList[0] == 0xBF || dayList[1] == 0xF0 || dayList[2] == 0x01 || dayList[3] == 0x00 || dayList[4] == 0x0F)
-//                            {
-//                                dayList.RemoveRange(0, 5);
-//                            }
-//                            PrePaymentInfo daypre = new PrePaymentInfo();
-//                            daypre.CollectTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-//                            daypre.CollectorNo += GlobalItems.CurrentCollectorNo;
-//                            daypre.MeterNo += meterNo;
-//                            daypre.MeterPosition += i.ToString();
-//                            daypre.DataTime += CommonUtils.GetHexString(dayList[7]) + CommonUtils.GetHexString(dayList[8]) + CommonUtils.GetHexString(dayList[9]);
-//                            daypre.MoneyUsed += CommonUtils.GetBCDString(dayList.GetRange(12, 4));
-//                            daypre.MoneyAdded += CommonUtils.GetBCDString(dayList.GetRange(16, 4));
-//                            daypre.MoneyLeft += CommonUtils.GetBCDString(dayList.GetRange(20, 4));
-//                            daypre.MoneyStatus += CommonUtils.GetBCDString(dayList.GetRange(24, 1));
-//                            daypre.RelayStatus += CommonUtils.GetBCDString(dayList.GetRange(25, 1));
-//                            daypre.MeterMode += CommonUtils.GetBCDString(dayList.GetRange(26, 1));
-//                            daypre.RelayOperationReason += CommonUtils.GetBCDString(dayList.GetRange(27, 1));
-//                            bool bis = isExists(daypre.MoneyUsed.Value);
-//                            if (bis)
-//                            {
-//                                daypre.MoneyUsed.Value = daypre.MoneyUsed.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double d = Convert.ToDouble(daypre.MoneyUsed.Value.Insert(6, "."));
-//                                daypre.MoneyUsed.Value = d.ToString();
-//                            }
-//                            bool bisAdd = isExists(daypre.MoneyAdded.Value);
-//                            if (bisAdd)
-//                            {
-//                                daypre.MoneyAdded.Value = daypre.MoneyAdded.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double d = Convert.ToDouble(daypre.MoneyAdded.Value.Insert(6, "."));
-//                                daypre.MoneyAdded.Value = d.ToString();
-//                            }
-//                            bool bisleft = isExists(daypre.MoneyLeft.Value);
-//                            if (bisleft)
-//                            {
-//                                daypre.MoneyLeft.Value = daypre.MoneyLeft.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double left = Convert.ToDouble(daypre.MoneyLeft.Value.Insert(6, "."));
-//                                daypre.MoneyLeft.Value = left.ToString();
-//                            }
-//
-//                            daypre.RelayStatus.Value = StaticPrePaymentRelayStates.GetRelayStatus(daypre);
-//
-//                            if (!daypre.AddDBItem(GlobalDataBases.DBTask))
-//                            {
-//                                errorMessage.Add(StaticITableModel.errorMessage);
-//                                return false;
-//                            }
-//                            Log(daypre.DataTime.Value + " " + "Comsumption" + ":" + daypre.MoneyUsed.Value + "kwh");
-//                            Log(daypre.DataTime.Value + " " + "Charge" + ":" + daypre.MoneyAdded.Value + "kwh");
-//                            Log(daypre.DataTime.Value + " " + "Credit" + ":" + daypre.MoneyLeft.Value + "kwh");
-//                            //  Log(daypre.DataTime.Value + " " + "MS" + ":" + daypre.MoneyStatus.Value);
-//                            Log(daypre.DataTime.Value + " " + "Relay Status" + ":" + StaticPrePaymentRelayStates.GetRelayStatusText(daypre));
-//                            Log(daypre.DataTime.Value + " " + "Meter Mode" + ":" + StaticPrePaymentMeterModes.GetMeterModeText(daypre));
-//                            Log(daypre.DataTime.Value + " " + "Operation Reason" + ":" + StaticPrePaymentOperationReasons.GetRelayOperationReasonText(daypre));
-//                            dayList.RemoveRange(0, 28);
-//
-//                        }
-//                        //receivelst.RemoveRange(0, 117);
-//                        receivelst.RemoveRange(0, 122);
-//                    }
-//                    if (receivelst.Count > 5)
-//                    {
-//                        receivelst.RemoveRange(0, 5);
-//                        while (receivelst.Count >= 28)
-//                        {
-//                            if (receivelst[0] == 0xBF || receivelst[1] == 0xF0 || receivelst[2] == 0x01 || receivelst[3] == 0x00 || receivelst[4] == 0x0F)
-//                            {
-//                                receivelst.RemoveRange(0, 5);
-//                            }
-//                            PrePaymentInfo daypre = new PrePaymentInfo();
-//                            daypre.CollectTime += DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-//                            daypre.CollectorNo += GlobalItems.CurrentCollectorNo;
-//                            daypre.MeterNo += meterNo;
-//                            daypre.MeterPosition += i.ToString();
-//                            daypre.DataTime += CommonUtils.GetHexString(receivelst[7]) + CommonUtils.GetHexString(receivelst[8]) + CommonUtils.GetHexString(receivelst[9]);
-//                            daypre.MoneyUsed += CommonUtils.GetBCDString(receivelst.GetRange(12, 4));
-//                            daypre.MoneyAdded += CommonUtils.GetBCDString(receivelst.GetRange(16, 4));
-//                            daypre.MoneyLeft += CommonUtils.GetBCDString(receivelst.GetRange(20, 4));
-//                            daypre.MoneyStatus += CommonUtils.GetBCDString(receivelst.GetRange(24, 1));
-//                            daypre.RelayStatus += CommonUtils.GetBCDString(receivelst.GetRange(25, 1));
-//                            daypre.MeterMode += CommonUtils.GetBCDString(receivelst.GetRange(26, 1));
-//                            daypre.RelayOperationReason += CommonUtils.GetBCDString(receivelst.GetRange(27, 1));
-//                            //解析数据
-//                            bool bis = isExists(daypre.MoneyUsed.Value);
-//                            if (bis)
-//                            {
-//                                daypre.MoneyUsed.Value = daypre.MoneyUsed.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double d = Convert.ToDouble(daypre.MoneyUsed.Value.Insert(6, "."));
-//                                daypre.MoneyUsed.Value = d.ToString();
-//                            }
-//                            bool bisAdd = isExists(daypre.MoneyAdded.Value);
-//                            if (bisAdd)
-//                            {
-//                                daypre.MoneyAdded.Value = daypre.MoneyAdded.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double d = Convert.ToDouble(daypre.MoneyAdded.Value.Insert(6, "."));
-//                                daypre.MoneyAdded.Value = d.ToString();
-//                            }
-//                            bool bisleft = isExists(daypre.MoneyLeft.Value);
-//                            if (bisleft)
-//                            {
-//                                daypre.MoneyLeft.Value = daypre.MoneyLeft.Value.Insert(6, ".");
-//                            }
-//                            else
-//                            {
-//                                double left = Convert.ToDouble(daypre.MoneyLeft.Value.Insert(6, "."));
-//                                daypre.MoneyLeft.Value = left.ToString();
-//                            }
-//
-//                            daypre.RelayStatus.Value = StaticPrePaymentRelayStates.GetRelayStatus(daypre);
-//                            if (!daypre.AddDBItem(GlobalDataBases.DBTask))
-//                            {
-//                                errorMessage.Add(StaticITableModel.errorMessage);
-//                                return false;
-//                            }
-//                            Log(daypre.DataTime.Value + " " + "Comsumption" + ":" + daypre.MoneyUsed.Value + "kwh");
-//                            Log(daypre.DataTime.Value + " " + "Charge" + ":" + daypre.MoneyAdded.Value + "kwh");
-//                            Log(daypre.DataTime.Value + " " + "Credit" + ":" + daypre.MoneyLeft.Value + "kwh");
-//                            // Log(daypre.DataTime.Value + " " + "MS" + ":" + daypre.MoneyStatus.Value);
-//                            Log(daypre.DataTime.Value + " " + "Relay Status" + ":" + StaticPrePaymentRelayStates.GetRelayStatusText(daypre));
-//                            Log(daypre.DataTime.Value + " " + "Meter Mode" + ":" + StaticPrePaymentMeterModes.GetMeterModeText(daypre));
-//                            Log(daypre.DataTime.Value + " " + "Operation Reason" + ":" + StaticPrePaymentOperationReasons.GetRelayOperationReasonText(daypre));
-//                            receivelst.RemoveRange(0, 28);
-//
-//                        }
-//
-//
-//                    }
-//                }
-//            }
-//            else
-//            {
-//                // Log("-------------------" + "-------------------");
-//                Log(meterNo + ":" + "TIME OUT FAILED");
-//
-//            }
-//
-//        }
-//        Log("All finished");
-//        return true;
-
     }
 
     /**
@@ -1534,6 +1420,86 @@ public class HexClient645API {
             assist.aResult = false;
         }
         return assist;
+    }
+
+    /**
+     * 大数据 转换 int 有符合
+     *
+     * @param value    16进制数据
+     * @param dataType 数据类型
+     * @return int
+     */
+    public static long parseInteger(String value, int dataType) {
+        try {
+
+            return parseInteger(new BigInteger(value, 16), dataType);
+
+        } catch (Exception ex) {
+            Log.d("api=parseInteger", ex.getMessage());
+        }
+        return -1;
+    }
+
+    /**
+     * 转换 Integer
+     *
+     * @param integer  BigInteger
+     * @param dataType 数据类型
+     * @return Integer
+     */
+    public static long parseInteger(BigInteger integer, int dataType) {
+
+        //4字节 有 负数
+        if (dataType == HexDataFormat.DOUBLE_LONG) {
+            BigInteger c = new BigInteger("100000000", 16);
+            int data = integer.compareTo(c);
+            if (data > 0) {
+                return data;
+            }
+        }
+        //有负数
+        else if (dataType == HexDataFormat.LONG64) {
+            BigInteger c = new BigInteger("10000000000000000", 16);
+            int data = integer.compareTo(c);
+            if (data > 0) {
+                return data;
+            }
+        } else if (dataType == HexDataFormat.DOUBLE_LONG_UNSIGNED) {
+            return integer.longValue();
+        } else if (dataType == HexDataFormat.LONG64_UNSIGNED) {
+            BigInteger c = new BigInteger("10000000000000000", 16);
+            return c.longValue();
+        }
+        return integer.intValue();
+    }
+
+    /**
+     * 量纲转换
+     *
+     * @param val   long
+     * @param scale 量纲
+     * @return String
+     */
+    private String parseScale(long val, double scale) {
+        String result;
+        if (scale < 0) {
+            scale = Math.abs(scale);
+            String str = String.valueOf(val);
+            String temp = "";
+            if (str.startsWith("-")) {
+                //有负数的情况
+                temp = "-";
+                str = str.substring(1);
+            }
+            if (str.length() <= scale) {
+                str = HexStringUtil.padRight(str, (int) scale + 1, '0');
+                str = temp + str;
+            }
+            result = new StringBuffer(str).insert(str.length() - (int) scale, ".").toString();
+        } else {
+            result = String.valueOf((int) (val * Math.pow(10, scale)));
+        }
+        return result;
     }
 
     /**
