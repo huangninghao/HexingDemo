@@ -1526,8 +1526,7 @@ public class HexClient645API {
         }
         if (isSuccess) {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
-            framePara.setSleepT((int) this.handWaitTime);
-            framePara.setSleepT((int) this.sleepSend);
+            framePara.SleepT =(int) this.sleepSend;
             assist = commServer.sendByte(framePara, iComm, assist);
             if (assist.isCloseSerial) {
                 closeSerial();

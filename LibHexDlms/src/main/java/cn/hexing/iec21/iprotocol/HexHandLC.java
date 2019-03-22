@@ -79,7 +79,7 @@ public class HexHandLC implements IProtocol {
                         paraModel.setMeterPWD(encryptionMeterPwdNew(HexStringUtil.bytesToHexString(copy), paraModel.Pwd));
                     }
                     sndByt = HexStringUtil.hexToByte(hdlcframe.getPwdFrame(paraModel));
-                    SystemClock.sleep(paraModel.getSleepT());
+                    SystemClock.sleep(paraModel.SleepT);
                     isSend = commDevice.sendByt(sndByt);
                     if (isSend) {
                         receiveByt = commDevice.receiveByt(paraModel.getHandWaitTime(), paraModel.getDataFrameWaitTime(), paraModel.recDataConversion);
@@ -487,7 +487,7 @@ public class HexHandLC implements IProtocol {
         paraModel.Nsend = Nsend;
         byte[] sndByt = HexStringUtil.hexToByte(hdlcframe.getReadR2Frame(paraModel));
 
-        SystemClock.sleep(paraModel.getSleepT());
+        SystemClock.sleep(paraModel.SleepT);
 
         boolean isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
@@ -542,7 +542,7 @@ public class HexHandLC implements IProtocol {
                 paraModel.Nsend = Nsend;
                 paraModel.Nrec = Nrec;
                 sndByt = HexStringUtil.hexToByte(hdlcframe.getReadRequestBlockFrame(paraModel));
-                SystemClock.sleep(paraModel.getSleepT());
+                SystemClock.sleep(paraModel.SleepT);
                 isSend = commDevice.sendByt(sndByt);
                 if (!isSend) {
                     paraModel.ErrTxt = "DLMS_BLOCK_FAILED";

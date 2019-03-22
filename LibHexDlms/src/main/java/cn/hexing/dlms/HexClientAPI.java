@@ -251,7 +251,7 @@ public class HexClientAPI {
         framePara.enLevel = this.enLevel;
         framePara.SourceAddr = 0x03;
         framePara.strMeterNo = TextUtils.isEmpty(this.strMeterNo) ? "254455455" : this.strMeterNo;
-        framePara.setSleepT((int) this.sleepSend);
+        framePara.SleepT = (int) this.sleepSend;
         framePara.sleepReceiveT = (int) this.sleepReceiveT;
         framePara.ByteWaitT = 1500;
         framePara.Pwd = "00000000";
@@ -732,8 +732,7 @@ public class HexClientAPI {
         }
         if (isSuccess) {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
-            framePara.setSleepT((int) this.handWaitTime);
-            framePara.setSleepT((int) this.sleepSend);
+            framePara.SleepT = (int) this.sleepSend;
             assist = commServer.sendByte(framePara, iComm, assist);
             if (assist.isCloseSerial) {
                 closeSerial();
@@ -762,7 +761,7 @@ public class HexClientAPI {
             assist.originalWriteData = assist.writeData;
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
             framePara.setHandWaitTime((int) this.handWaitTime);
-            framePara.setSleepT((int) this.sleepSend);
+            framePara.SleepT = (int) this.sleepSend;
             assist.processWriteData = assist.originalWriteData;
             if (!TextUtils.isEmpty(assist.protocol)) {
                 if (assist.protocol.equals(HexProtocol.PRO_21)) {
@@ -774,7 +773,7 @@ public class HexClientAPI {
                     assist.processWriteData = assist.originalWriteData;
                 }
             }
-            SystemClock.sleep(framePara.getSleepT());
+            SystemClock.sleep(framePara.SleepT);
             assist = commServer.sendUpgrade(framePara, iComm, assist);
             if (!TextUtils.isEmpty(assist.protocol)) {
                 if (assist.protocol.equals(HexProtocol.PRO_21)) {

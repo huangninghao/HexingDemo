@@ -238,7 +238,7 @@ public class HexClient21API {
         } else if (commMethod == HexDevice.METHOD_OPTICAL) {
             framePara.strMeterNo = "";
         }
-        framePara.setSleepT((int) this.sleepSend);
+        framePara.SleepT =(int) this.sleepSend;
         framePara.ByteWaitT = 1500;
         framePara.Pwd = this.strMeterPwd;
         framePara.aesKey = new byte[16];
@@ -263,7 +263,7 @@ public class HexClient21API {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
             framePara.setHandWaitTime((int) this.handWaitTime);
             framePara.FirstFrame = this.firstFrame;
-            framePara.setSleepT((int) this.sleepSend);
+            framePara.SleepT =(int) this.sleepSend;
             int pos = 0;
 
             while (tranXADRAssist.size() > 0) {
@@ -305,7 +305,7 @@ public class HexClient21API {
                 listener.onSuccess(assist, pos);
                 tranXADRAssist.remove(0);
                 pos++;
-                SystemClock.sleep(framePara.getSleepT());
+                SystemClock.sleep(framePara.SleepT);
             }
             closeSerial();
         }
@@ -351,7 +351,7 @@ public class HexClient21API {
         if (isSuccess) {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
             framePara.setHandWaitTime((int) this.handWaitTime);
-            framePara.setSleepT((int) this.sleepSend);
+            framePara.SleepT =(int) this.sleepSend;
             framePara.sleepChangeBaudRate = this.sleepChangeBaudRate;
             assist = commServer.sendByte(framePara, iComm, assist);
             if (assist.isCloseSerial) {

@@ -1,12 +1,13 @@
 package cn.hexing.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 import cn.hexing.HexHandType;
 import cn.hexing.MeterType;
 
 
-public class HXFramePara {
+public class HXFramePara implements Cloneable, Serializable {
 
     public enum APDUtype {
         glo_initiateRequest, glo_initiateResponse, glo_get_request,
@@ -223,14 +224,6 @@ public class HXFramePara {
         this.listTranXADRAssist = listTranXADRAssist;
     }
 
-    public int getSleepT() {
-        return SleepT;
-    }
-
-    public void setSleepT(int sleepT) {
-        SleepT = sleepT;
-    }
-
     public int getDataFrameWaitTime() {
         return dataFrameWaitTime;
     }
@@ -261,5 +254,10 @@ public class HXFramePara {
 
     public void setMeterPWD(String meterPWD) {
         MeterPWD = meterPWD;
+    }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();
     }
 }

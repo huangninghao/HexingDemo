@@ -62,7 +62,7 @@ public class HXHdlcDLMS implements IProtocol {
                 if (receiveByt.length > 5) {
                     // 发送Z字
                     sndByt = hdlcframe.getZFrame(receiveByt[4]);
-                    SystemClock.sleep(paraModel.getSleepT());
+                    SystemClock.sleep(paraModel.SleepT);
                     isSend = commDevice.sendByt(sndByt);
                     if (!isSend) {
                         // 返回错误代码，串口打开失败
@@ -163,7 +163,7 @@ public class HXHdlcDLMS implements IProtocol {
             return false;
         }
         sndByt = hdlcframe.getNoAuthAARQFrame(fpara);
-        SystemClock.sleep(fpara.getSleepT());
+        SystemClock.sleep(fpara.SleepT);
         isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             fpara.ErrTxt = "DLMS_AARQ_FAILED";
@@ -448,7 +448,7 @@ public class HXHdlcDLMS implements IProtocol {
                 || !paraModel.FirstFrame) {
             SystemClock.sleep(20);
         }
-        SystemClock.sleep(paraModel.getSleepT());
+        SystemClock.sleep(paraModel.SleepT);
         boolean isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_NORMAL_FAILED";
@@ -500,7 +500,7 @@ public class HXHdlcDLMS implements IProtocol {
                 paraModel.Nsend = Nsend;
                 paraModel.Nrec = Nrec;
                 sndByt = hdlcframe.getReadRequestBlockFrame(paraModel);
-                SystemClock.sleep(paraModel.getSleepT());
+                SystemClock.sleep(paraModel.SleepT);
                 isSend = commDevice.sendByt(sndByt);
                 if (!isSend) {
                     paraModel.ErrTxt = "DLMS_BLOCK_FAILED";
@@ -618,7 +618,7 @@ public class HXHdlcDLMS implements IProtocol {
                     || !paraModel.FirstFrame) {
                 SystemClock.sleep(20);
             }
-            SystemClock.sleep(paraModel.getSleepT());
+            SystemClock.sleep(paraModel.SleepT);
             isSend = commDevice.sendByt(sndByt);
             if (!isSend) {
                 paraModel.ErrTxt = "DLMS_WRITE_FAILED";
@@ -880,7 +880,7 @@ public class HXHdlcDLMS implements IProtocol {
                 || !paraModel.FirstFrame) {
             SystemClock.sleep(20);
         }
-        SystemClock.sleep(paraModel.getSleepT());
+        SystemClock.sleep(paraModel.SleepT);
         isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_ACTION_FAILED";
@@ -1345,6 +1345,8 @@ public class HXHdlcDLMS implements IProtocol {
         paraDes.sysTitleS = paraSource.sysTitleS;
         paraDes.dataFrameWaitTime = paraSource.dataFrameWaitTime;
         paraDes.WriteData = paraSource.WriteData;
+        paraDes.SleepT = paraSource.SleepT;
+        paraDes.sleepReceiveT = paraSource.sleepReceiveT;
     }
 
     /**
