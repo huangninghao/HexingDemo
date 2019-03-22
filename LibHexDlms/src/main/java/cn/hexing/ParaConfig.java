@@ -99,6 +99,8 @@ public class ParaConfig {
      */
     public long sleepSendTime;
 
+    public long sleepReceiveTime;
+
     //8位数据位 是否转换 7位数据位发送
     public boolean isBitConversion = false;
     public boolean isBaudRateTest = false;
@@ -108,6 +110,8 @@ public class ParaConfig {
     public boolean recDataConversion = false;
 
     public boolean debugMode;
+
+    public int meterType = 0;
 
     public ParaConfig() {
         this.baudRate = 300;
@@ -124,6 +128,7 @@ public class ParaConfig {
         this.strMeterNo = "254455455";
         this.deviceType = HexDevice.KT50;
         this.sleepSendTime = 5;
+        this.sleepReceiveTime = 0;
         this.debugMode = false;
         this.strMeterPwd = "000000000000";
         this.isBitConversion = false;
@@ -133,6 +138,7 @@ public class ParaConfig {
         this.channelBaudRate = 4800;
         this.fixedChannel = -1;
         this.handType = HexHandType.HEXING;
+        this.meterType = 0;
     }
 
     public static class Builder {
@@ -279,6 +285,11 @@ public class ParaConfig {
             return this;
         }
 
+        public Builder setSleepReceiveTime(long time) {
+            this.config.sleepReceiveTime = time;
+            return this;
+        }
+
         public Builder setSleepChangeBaudRate(long time) {
             this.config.changeBaudRateSleepTime = time;
             return this;
@@ -311,6 +322,11 @@ public class ParaConfig {
 
         public Builder setHandType(@HexHandType.HandTypes int type) {
             this.config.handType = type;
+            return this;
+        }
+
+        public Builder setMeterType(@MeterType.MTypes int type) {
+            this.config.meterType = type;
             return this;
         }
 

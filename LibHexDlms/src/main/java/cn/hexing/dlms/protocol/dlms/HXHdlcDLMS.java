@@ -3,7 +3,9 @@ package cn.hexing.dlms.protocol.dlms;
 import android.os.SystemClock;
 
 import cn.hexing.HexDevice;
+import cn.hexing.HexHandType;
 import cn.hexing.HexStringUtil;
+import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.iComm.ICommAction;
 import cn.hexing.dlms.protocol.iprotocol.IProtocol;
 import cn.hexing.dlms.protocol.model.HexActionBean;
@@ -93,6 +95,41 @@ public class HXHdlcDLMS implements IProtocol {
         return true;
     }
 
+
+    /**
+     * -握手 伊拉克表
+     *
+     * @param paraModel  HXFramePara
+     * @param commDevice ICommAction
+     * @return boolean
+     */
+    private boolean Handclasp2(HXFramePara paraModel, ICommAction commDevice) {
+        try {
+            commDevice.setBaudRate(paraModel.baudRate);
+            Nrec = 0;
+            Nsend = 0;
+            paraModel.Nrec = Nrec;
+            paraModel.Nsend = Nsend;
+            byte[] sndByt = hdlcframe.getHandclaspFrame();
+            boolean isSend = commDevice.sendByt(sndByt);
+            // 检查是否发送成功，发送成功
+            if (!isSend) {
+                paraModel.ErrTxt = "Serial port access denied!";// 返回错误代码，串口打开失败
+                return false;
+            }
+            byte[] receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.getDataFrameWaitTime());
+            if (receiveByt != null && receiveByt.length > 1) {
+                return true;
+            } else {
+                paraModel.ErrTxt = "Over time!";
+                return false;
+            }
+        } catch (Exception ex) {
+            paraModel.ErrTxt = "Er2:" + ex.getMessage();
+            return false;
+        }
+    }
+
     /**
      * DLMS-None身份验证
      *
@@ -115,7 +152,7 @@ public class HXHdlcDLMS implements IProtocol {
             fpara.ErrTxt = "DLMS_SNRM_FAILED";
             return false;
         }
-        receiveByt = commDevice.receiveByt(fpara.ByteWaitT, fpara.dataFrameWaitTime);
+        receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
         if (receiveByt != null && receiveByt.length > 0) {
             if (!checkFrame(receiveByt, false, fpara)) {
                 return false;
@@ -134,7 +171,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend = 1;
         fpara.Nsend = Nsend;
-        receiveByt = commDevice.receiveByt(fpara.SleepT, fpara.dataFrameWaitTime);
+        receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
         if (receiveByt != null) {
             if (!checkFrame(receiveByt, true, fpara)) {
                 fpara.ErrTxt = "DLMS_FORMAT_ERROR";
@@ -177,7 +214,7 @@ public class HXHdlcDLMS implements IProtocol {
                 fpara.ErrTxt = "DLMS_SNRM_FAILED";
                 return false;
             }
-            receiveByt = commDevice.receiveByt(fpara.ByteWaitT, fpara.dataFrameWaitTime);
+            receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
             errNum--;
             if (receiveByt.length > 0) {
                 break;
@@ -203,7 +240,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend = 1;
         fpara.Nsend = Nsend;
-        receiveByt = commDevice.receiveByt(fpara.ByteWaitT, fpara.dataFrameWaitTime);
+        receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
         if (receiveByt != null) {
             if (!checkFrame(receiveByt, true, fpara)) {
                 return false;
@@ -234,7 +271,6 @@ public class HXHdlcDLMS implements IProtocol {
         int errNum = 4;
         byte[] sndByt;
         while (errNum > 0) {
-
             if (errNum == 2) {
                 commDevice.setBaudRate(9600);
                 sndByt = hdlcframe.getNoAuthSNRMFrame(fpara);
@@ -244,16 +280,15 @@ public class HXHdlcDLMS implements IProtocol {
                 sndByt = hdlcframe.getNoAuthSNRMFrame(fpara);
                 System.out.println("HLS验证，波特率切换4800尝试");
             } else {
-                commDevice.setBaudRate(9600);
-                System.out.println("HLS验证，波特率9600尝试 广播地址通讯测试");
-                sndByt = HexStringUtil.hexToByte("7E A0 23 00 02 FE FF 03 93 E4 B0 81 80 14 05 02 07 D0 06 02 07 D0 07 04 00 00 00 01 08 04 00 00 00 01 3A F2 7E");
+                sndByt = hdlcframe.getNoAuthSNRMFrame(fpara);
+                System.out.println("HLS验证");
             }
             isSend = commDevice.sendByt(sndByt);
             if (!isSend) {
                 fpara.ErrTxt = "DLMS_SNRM_FAILED";
                 return false;
             }
-            receiveByt = commDevice.receiveByt(fpara.ByteWaitT, fpara.dataFrameWaitTime);
+            receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
             errNum--;
             if (receiveByt.length > 0) {
                 break;
@@ -280,7 +315,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend = 1;
         fpara.Nsend = 1;
-        receiveByt = commDevice.receiveByt(fpara.ByteWaitT, fpara.dataFrameWaitTime);
+        receiveByt = commDevice.receiveByt(fpara.sleepReceiveT, fpara.dataFrameWaitTime);
         if (receiveByt != null && receiveByt.length > 0) {
             if (!checkFrame(receiveByt, true, fpara)) {
                 return false;
@@ -323,7 +358,7 @@ public class HXHdlcDLMS implements IProtocol {
         System.out.println("通道切换，波特率=" + para.channelBaudRate);
         boolean isSend = commDevice.sendByt(hdlcframe.getChangeChannel(para));
         if (isSend) {
-            byte[] receiveByt = commDevice.receiveByt(para.ByteWaitT, para.dataFrameWaitTime);
+            byte[] receiveByt = commDevice.receiveByt(para.sleepReceiveT, para.dataFrameWaitTime);
             if (receiveByt != null && receiveByt.length > 0) {
                 commDevice.setBaudRate(para.baudRate);
                 System.out.println("切换通讯波特率=" + para.baudRate);
@@ -348,7 +383,7 @@ public class HXHdlcDLMS implements IProtocol {
         commDevice.setBaudRate(channelBaudRate);
         boolean isSend = commDevice.sendByt(hdlcframe.getChangeChannel(para));
         if (isSend) {
-            byte[] receiveByt = commDevice.receiveByt(para.ByteWaitT, para.dataFrameWaitTime);
+            byte[] receiveByt = commDevice.receiveByt(para.sleepReceiveT, para.dataFrameWaitTime);
             if (receiveByt != null && receiveByt.length > 0) {
                 commDevice.setBaudRate(baudRate);
                 return true;
@@ -370,9 +405,17 @@ public class HXHdlcDLMS implements IProtocol {
                     return null;
                 }
             } else if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
-                if (!changeChannel(paraModel, commDevice)) {
-                    paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
-                    return null;
+                if (paraModel.handType == HexHandType.IRAQ) {
+                    //伊拉克表
+                    if (!Handclasp2(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_AUTH_FAILED";
+                        return null;
+                    }
+                } else {
+                    if (!changeChannel(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+                        return null;
+                    }
                 }
             }
 
@@ -405,6 +448,7 @@ public class HXHdlcDLMS implements IProtocol {
                 || !paraModel.FirstFrame) {
             SystemClock.sleep(20);
         }
+        SystemClock.sleep(paraModel.getSleepT());
         boolean isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_NORMAL_FAILED";
@@ -412,7 +456,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend++;
         paraModel.Nsend = Nsend;
-        byte[] receiveByt = commDevice.receiveByt(paraModel.SleepT, paraModel.dataFrameWaitTime);
+        byte[] receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
         if (receiveByt == null || receiveByt.length == 0 || !checkFrame(receiveByt)) {
             return new byte[0];
         }
@@ -464,7 +508,7 @@ public class HXHdlcDLMS implements IProtocol {
                 }
                 Nsend++;
                 paraModel.Nsend = Nsend;
-                receiveByt = commDevice.receiveByt(paraModel.SleepT, paraModel.dataFrameWaitTime);
+                receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
                 if (receiveByt != null) {
                     // 接受校验CRC
                     if (!checkFrame(receiveByt)) {
@@ -574,6 +618,7 @@ public class HXHdlcDLMS implements IProtocol {
                     || !paraModel.FirstFrame) {
                 SystemClock.sleep(20);
             }
+            SystemClock.sleep(paraModel.getSleepT());
             isSend = commDevice.sendByt(sndByt);
             if (!isSend) {
                 paraModel.ErrTxt = "DLMS_WRITE_FAILED";
@@ -581,7 +626,7 @@ public class HXHdlcDLMS implements IProtocol {
             }
             Nsend++;
             paraModel.Nsend = Nsend;
-            receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime);
+            receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
             if (receiveByt == null || receiveByt.length == 0
                     || !checkFrame(receiveByt)) {
             }
@@ -625,7 +670,7 @@ public class HXHdlcDLMS implements IProtocol {
                 if (BlockNum == 0xff) {
                 }
                 BlockNum++;
-                receiveByt = commDevice.receiveByt(paraModel.ByteWaitT,
+                receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT,
                         paraModel.dataFrameWaitTime);
 
                 if (receiveByt != null) {
@@ -714,7 +759,7 @@ public class HXHdlcDLMS implements IProtocol {
             }
             Nsend++;
             paraModel.Nsend = Nsend;
-            receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime);
+            receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
             if (receiveByt == null || receiveByt.length == 0
                     || !checkFrame(receiveByt)) {
             }
@@ -759,7 +804,7 @@ public class HXHdlcDLMS implements IProtocol {
                 if (BlockNum == 0xff) {
                 }
                 BlockNum++;
-                receiveByt = commDevice.receiveByt(paraModel.ByteWaitT,
+                receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT,
                         paraModel.dataFrameWaitTime);
 
                 if (receiveByt != null) {
@@ -835,6 +880,7 @@ public class HXHdlcDLMS implements IProtocol {
                 || !paraModel.FirstFrame) {
             SystemClock.sleep(20);
         }
+        SystemClock.sleep(paraModel.getSleepT());
         isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_ACTION_FAILED";
@@ -842,7 +888,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend++;
         paraModel.Nsend = Nsend;
-        receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime);
+        receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
         if (receiveByt != null && receiveByt.length > 0) {
             Nrec++;
             paraModel.Nrec = Nrec;
@@ -914,7 +960,7 @@ public class HXHdlcDLMS implements IProtocol {
         }
         Nsend++;
         paraModel.Nsend = Nsend;
-        byte[] receiveByt = commDevice.receiveByt(paraModel.SleepT, paraModel.dataFrameWaitTime);
+        byte[] receiveByt = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime);
         if (receiveByt == null || receiveByt.length == 0 || !checkFrame(receiveByt)) {
             return new byte[0];
         }
@@ -1010,7 +1056,7 @@ public class HXHdlcDLMS implements IProtocol {
         if (assist.byteLen > 0) {
             assist.recBytes = commDevice.receiveBytToCallback(paraModel.dataFrameWaitTime, assist.byteLen);
         } else {
-            assist.recBytes = commDevice.receiveByt(paraModel.getSleepT(), paraModel.getDataFrameWaitTime());
+            assist.recBytes = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.getDataFrameWaitTime());
         }
         if (assist.recBytes == null || assist.recBytes.length == 0) {
             assist.aResult = false;
@@ -1038,7 +1084,7 @@ public class HXHdlcDLMS implements IProtocol {
             return assist;
         }
 
-        assist.recBytes = commDevice.receiveByt(paraModel.getSleepT(), paraModel.dataFrameWaitTime, assist.byteLen);
+        assist.recBytes = commDevice.receiveByt(paraModel.sleepReceiveT, paraModel.dataFrameWaitTime, assist.byteLen);
 
         if (assist.recBytes == null || assist.recBytes.length == 0) {
             assist.aResult = false;

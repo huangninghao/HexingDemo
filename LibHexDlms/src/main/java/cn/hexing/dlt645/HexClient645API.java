@@ -1590,11 +1590,11 @@ public class HexClient645API {
                 commServer.close(iComm);
                 iComm = null;
                 commServer = null;
-                if (deviceType.equals(HexDevice.HT380A)) {
-                    powerHT380AOff();
-                } else {
-                    powerOff();
-                }
+//                if (deviceType.equals(HexDevice.HT380A)) {
+//                    powerHT380AOff();
+//                } else {
+//                    powerOff();
+//                }
             }
         } catch (Exception e) {
             e.printStackTrace();

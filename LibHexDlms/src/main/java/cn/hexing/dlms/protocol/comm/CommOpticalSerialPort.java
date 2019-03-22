@@ -1,6 +1,8 @@
 package cn.hexing.dlms.protocol.comm;
 
 
+import android.os.SystemClock;
+
 import cn.hexing.HexStringUtil;
 import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.dlms.IHexListener;
@@ -168,6 +170,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         delay_occurZJ = false;
         int size;
         int Index = 0;
+        SystemClock.sleep(SleepT);
         startTimer(WaitT);
         try {
 

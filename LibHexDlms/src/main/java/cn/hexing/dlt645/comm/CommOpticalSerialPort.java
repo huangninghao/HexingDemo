@@ -87,6 +87,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
         try {
             if (mSerialPort != null) {
                 aOpenStatus = false;
+                mInputStream = null;
+                mOutputStream = null;
                 mSerialPort.Close();
             }
         } catch (Exception ex) {
@@ -181,6 +183,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         startTimer(WaitT);
         try {
             while (!delay_occurZJ) {
+                SystemClock.sleep(200);
                 if (mInputStream.available() > 0) {
                     size = mInputStream.read(rBuffer);// 刚开始为-1
                     if (size > 0) {
@@ -208,7 +211,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
                             int len;
                             for (int m = 0; m < Index; m++) {
                                 if (((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x81)
-                                        || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0xA1)) {
+                                        || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0xA1)
+                                        || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x84)) {
                                     len = rtnByt[m + 2] & 0xff;
                                     if (Index - m - 2 >= len) {
                                         delay_occurZJ = true;

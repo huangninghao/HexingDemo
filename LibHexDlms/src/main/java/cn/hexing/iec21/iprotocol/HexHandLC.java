@@ -39,10 +39,6 @@ public class HexHandLC implements IProtocol {
      * @return boolean
      */
     private boolean Handclasp(HXFramePara paraModel, AbsCommAction commDevice) {
-        if (paraModel.handType == HexHandType.IRAQ) {
-            //伊拉克
-            return Handclasp2(paraModel, commDevice);
-        }
         try {
             Nrec = 0;
             Nsend = 0;
@@ -115,29 +111,39 @@ public class HexHandLC implements IProtocol {
     }
 
     /**
-     * -握手 伊拉克表
+     * -握手 伊拉克
      *
      * @param paraModel  HXFramePara
      * @param commDevice ICommAction
      * @return boolean
      */
-    private boolean Handclasp2(HXFramePara paraModel, AbsCommAction commDevice) {
+    private boolean HandclaspIraq(HXFramePara paraModel, AbsCommAction commDevice) {
         try {
-            commDevice.setBaudRate(paraModel.baudRate);
             Nrec = 0;
             Nsend = 0;
             paraModel.Nrec = Nrec;
             paraModel.Nsend = Nsend;
-            byte[] sndByt = HexStringUtil.hexToByte(hdlcframe.getBaudRateFrame(paraModel));
+            byte[] sndByt = HexStringUtil.hexToByte(hdlcframe.getIraqBaudRateFrame(paraModel));
             boolean isSend = commDevice.sendByt(sndByt);
             // 检查是否发送成功，发送成功
             if (!isSend) {
                 paraModel.ErrTxt = "Serial port access denied!";// 返回错误代码，串口打开失败
                 return false;
             }
-            byte[] receiveByt = commDevice.receiveByt(paraModel.getHandWaitTime(), paraModel.getDataFrameWaitTime(), paraModel.recDataConversion);
+            byte[] receiveByt = commDevice.receiveByt(paraModel.getHandWaitTime(), paraModel.getDataFrameWaitTime());
             if (receiveByt != null && receiveByt.length > 1) {
-                return true;
+
+                ////设置模式
+                sndByt = HexStringUtil.hexToByte(hdlcframe.getIraqModeFrame(paraModel));
+                isSend = commDevice.sendByt(sndByt);
+                if (!isSend) {
+                    paraModel.ErrTxt = "Serial port access denied!";// 返回错误代码，串口打开失败
+                    return false;
+                }
+                receiveByt = commDevice.receiveByt(paraModel.getHandWaitTime(), paraModel.getDataFrameWaitTime());
+                if (receiveByt != null && receiveByt.length > 0) {
+                    return true;
+                }
             } else {
                 paraModel.ErrTxt = "Over time!";
                 return false;
@@ -146,6 +152,8 @@ public class HexHandLC implements IProtocol {
             paraModel.ErrTxt = "Er2:" + ex.getMessage();
             return false;
         }
+
+        return false;
     }
 
 
@@ -440,9 +448,16 @@ public class HexHandLC implements IProtocol {
                 }
             } else if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
                 commDevice.setBaudRate(4800);
-                if (!Handclasp(paraModel, commDevice)) {
-                    paraModel.ErrTxt = "DLMS_AUTH_FAILED";
-                    return null;
+                if (paraModel.handType == HexHandType.IRAQ) {
+                    if (!HandclaspIraq(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_AUTH_FAILED";
+                        return null;
+                    }
+                } else {
+                    if (!Handclasp(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_AUTH_FAILED";
+                        return null;
+                    }
                 }
             }
 
@@ -668,9 +683,16 @@ public class HexHandLC implements IProtocol {
                     return false;
                 }
             } else if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
-                if (!changeChannel(paraModel, commDevice)) {
-                    paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
-                    return false;
+                if (paraModel.handType == HexHandType.IRAQ) {
+                    if (!HandclaspIraq(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_AUTH_FAILED";
+                        return false;
+                    }
+                } else {
+                    if (!changeChannel(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+                        return false;
+                    }
                 }
             }
 

@@ -13,6 +13,7 @@ import java.util.List;
 import cn.hexing.DeviceControl;
 import cn.hexing.HexAction;
 import cn.hexing.HexDevice;
+import cn.hexing.HexHandType;
 import cn.hexing.HexProtocol;
 import cn.hexing.HexStringUtil;
 import cn.hexing.iComm.AbsCommAction;
@@ -42,9 +43,11 @@ public class HexClientAPI {
     private HXFramePara.AuthMethod encryptionMode;
     private int baudRate = 300;
     private int channelBaudRate = 4800;
+    private int handType = HexHandType.HEXING;
     private int nBits = 8;
     private int nStop = 1;
     private long sleepSend = 20;// Sleep time after send(ms)
+    private long sleepReceiveT = 0;// sleep time after receive
     private long sleepChangeBaudRate = 300;
     private String sVerify = "N";
     private long handWaitTime = 1200;
@@ -115,6 +118,7 @@ public class HexClientAPI {
         this.debugMode = config.debugMode;
         this.sleepChangeBaudRate = config.changeBaudRateSleepTime;
         this.fixedChannel = config.fixedChannel;
+        this.handType = config.handType;
     }
 
     /**
@@ -248,6 +252,7 @@ public class HexClientAPI {
         framePara.SourceAddr = 0x03;
         framePara.strMeterNo = TextUtils.isEmpty(this.strMeterNo) ? "254455455" : this.strMeterNo;
         framePara.setSleepT((int) this.sleepSend);
+        framePara.sleepReceiveT = (int) this.sleepReceiveT;
         framePara.ByteWaitT = 1500;
         framePara.Pwd = "00000000";
         framePara.aesKey = new byte[16];
@@ -261,6 +266,7 @@ public class HexClientAPI {
         framePara.baudRate = this.baudRate;
         framePara.isFixedChannel = this.fixedChannel;
         framePara.channelBaudRate = this.channelBaudRate;
+        framePara.handType = this.handType;
     }
 
     /**

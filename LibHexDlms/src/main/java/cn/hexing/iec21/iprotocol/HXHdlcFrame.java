@@ -3,6 +3,7 @@ package cn.hexing.iec21.iprotocol;
 
 import android.util.Log;
 
+import cn.hexing.HexHandType;
 import cn.hexing.HexStringUtil;
 import cn.hexing.model.HXFramePara;
 
@@ -21,7 +22,7 @@ public class HXHdlcFrame {
         for (int i = 0; i < str.length(); i += 2) {
             res = res ^ Integer.valueOf(str.substring(i, i + 2), 16);
         }
-        return String.format("%02x", res & 0xff);
+        return String.format("%02X", res & 0xff);
     }
 
     /**
@@ -66,6 +67,45 @@ public class HXHdlcFrame {
         if (para.isBitConversion) {
             return HexStringUtil.getDisplacement(sendData.toString().toUpperCase());
         }
+        return sendData.toString().toUpperCase();
+    }
+
+    /**
+     * 获取波特率帧 伊拉克
+     *
+     * @param para HXFramePara
+     * @return 数据帧
+     */
+    public String getIraqBaudRateFrame(HXFramePara para) {
+        StringBuilder sendData = new StringBuilder();
+        sendData.append(String.format("%04X", para.meterType));
+        sendData.append(para.getStrMeterNo());
+        sendData.append("2F");
+        sendData.append("3F");
+        sendData.append("21");
+        sendData.append("0D");
+        sendData.append("0A");
+        Log.v("Hdlc伊拉克波特率", sendData.toString());
+        return sendData.toString().toUpperCase();
+    }
+
+    /**
+     * 获取模式 伊拉克
+     *
+     * @param para HXFramePara
+     * @return 数据帧
+     */
+    public String getIraqModeFrame(HXFramePara para) {
+        StringBuilder sendData = new StringBuilder();
+        sendData.append(String.format("%04X", para.meterType));
+        sendData.append(para.getStrMeterNo());
+        sendData.append("06");
+        sendData.append("30");
+        sendData.append("35");
+        sendData.append("31");
+        sendData.append("0D");
+        sendData.append("0A");
+        Log.v("Hdlc模式设置", sendData.toString());
         return sendData.toString().toUpperCase();
     }
 
@@ -177,6 +217,11 @@ public class HXHdlcFrame {
      * @return 数据帧
      */
     public String getReadR2Frame(HXFramePara para) {
+
+        if (para.handType == HexHandType.IRAQ) {
+            //伊拉克
+            return getReadR0FrameIraq(para);
+        }
         //读数据命令帧
         StringBuilder sendData = new StringBuilder();
         sendData.append("7F");
@@ -200,6 +245,35 @@ public class HXHdlcFrame {
         }
         return sendData.toString().toUpperCase();
     }
+
+
+    /**
+     * 读取数据帧 伊拉克
+     *
+     * @param para HXFramePara
+     * @return 数据帧
+     */
+    public String getReadR0FrameIraq(HXFramePara para) {
+        //读数据命令帧
+        StringBuilder sendData = new StringBuilder();
+        sendData.append(String.format("%04X", para.meterType));
+        sendData.append(para.getStrMeterNo());
+        sendData.append("01");
+        //sendData += "R2";
+        sendData.append("52");
+        sendData.append("31");
+        sendData.append("02");
+        sendData.append(HexStringUtil.parseAscii(para.OBISattri));
+        //2015-07-12 BY ZJC  带时间段读取
+        //sendData += "()";
+        sendData.append("28");//  (
+        sendData.append(HexStringUtil.parseAscii(para.WriteData));
+        sendData.append("29");// ")";
+        sendData.append("03");
+        sendData.append(checkout(sendData.substring(14))); //   去除表类型和表号字节  01 进行 运算
+        return sendData.toString().toUpperCase();
+    }
+
 
     /**
      * 读取数据块
@@ -246,6 +320,34 @@ public class HXHdlcFrame {
         }
         return sendData.toString().toUpperCase();
     }
+
+    /**
+     * 读数据命令帧 伊拉克
+     *
+     * @param para HXFramePara
+     * @return 数据帧
+     */
+    public String getReadR5FrameIraq(HXFramePara para) {
+        //读数据命令帧
+        StringBuilder sendData = new StringBuilder();
+        sendData.append(String.format("%04X", para.meterType));
+        sendData.append(para.getStrMeterNo());
+        sendData.append("01");
+        sendData.append("52");//R
+        sendData.append("35");//5
+        sendData.append("02");
+        sendData.append(HexStringUtil.parseAscii(para.OBISattri));//
+        //2015-07-12 BY ZJC  带时间段读取
+        //sendData += "()";
+        sendData.append("28");//  (
+        //sendData.append(HexStringUtil.parseAscii(para.WriteData));
+        sendData.append("29");// ")";
+
+        sendData.append("03");
+        sendData.append(checkout(sendData.substring(14)));
+        return sendData.toString().toUpperCase();
+    }
+
 
     /**
      * 写数据帧
