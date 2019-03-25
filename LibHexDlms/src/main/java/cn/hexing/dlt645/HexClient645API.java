@@ -437,7 +437,7 @@ public class HexClient645API {
                     meterNo = HexStringUtil.reverse(meterNo); //反序
                     meterSetupBean = new MeterSetupBean();
                     meterSetupBean.meterNo = HexStringUtil.bytesToHexString(meterNo);
-                    meterSetupBean.position = String.valueOf(item[6]);
+                    meterSetupBean.position = String.valueOf((item[6] & 0xff) +1);
                     assist.c645Bean.meterSetupBeanList.add(meterSetupBean);
                 }
             }

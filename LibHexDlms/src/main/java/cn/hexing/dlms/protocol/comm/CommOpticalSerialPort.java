@@ -189,13 +189,17 @@ public class CommOpticalSerialPort extends AbsCommAction {
                             break;
                         }
                         /**
-                         * 验证是否 8D0A 结束
+                         * 验证是否 8D0A 或 0D0A 结束
                          * 握手帧和波特率 该标志作为结束
                          */
                         if (Index > 1 && rtnByt[Index - 1] == 0x0a) {
                             if ((rtnByt[Index - 2] & 0xff) == 0x8d) {
                                 delay_occurZJ = true;
                                 System.out.println(TAG + "||满足8D0A结束");
+                                break;
+                            } else if ((rtnByt[Index - 2] & 0xff) == 0x0d) {
+                                delay_occurZJ = true;
+                                System.out.println(TAG + "||满足0D0A结束");
                                 break;
                             }
                         }
@@ -268,7 +272,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
 
     @Override
     public void setBaudRate(int baudRate, char parity, int dataBit, int stopBit) {
-       // mSerialPort.close();
+        // mSerialPort.close();
         this.baudRate = baudRate;
         mfd = mSerialPort.open(uartpath, this.baudRate, dataBit, parity, stopBit);
         mOutputStream = mSerialPort.getOutputStream(mfd);
