@@ -6,6 +6,7 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.hexing.HexDevice;
 import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.iComm.AbsCommServer;
 import cn.hexing.iComm.ICommAction;
@@ -96,6 +97,22 @@ public class CommServer extends AbsCommServer {
         return btyResult;
     }
 
+    public byte[] GetMbusMeterAddr(String MeterAddr) {
+        // 取表号前10位）。
+        if (MeterAddr.length() >= 10) {
+            MeterAddr = MeterAddr.substring(0, 10);
+        } else {
+            MeterAddr = HexStringUtil.padRight(MeterAddr, 10, '0');
+        }
+        byte[] btyResult = new byte[4];
+        long m = Long.parseLong(MeterAddr);
+        btyResult[0] = (byte) (m >> 24);
+        btyResult[1] = (byte) ((m >> 16) & 0xFF);
+        btyResult[2] = (byte) ((m >> 8) & 0xFF);
+        btyResult[3] = (byte) (m & 0xFF);
+        return btyResult;
+    }
+
 
     char HexChar(char c) {
         if ((c >= '0') && (c <= '9'))
@@ -157,10 +174,12 @@ public class CommServer extends AbsCommServer {
             assist.obis = paraModel.OBISattri;
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             assist.recBytes = recByt;
@@ -199,12 +218,13 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assist.obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
-
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             assist.recBytes = recByt;
             if (recByt == null || recByt.length == 0) {
@@ -248,10 +268,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assist.obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             assist.recBytes = recByt;
@@ -289,10 +311,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assists.get(0).obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             paraModel.WriteData = dlmsService.GetXADRCode(assists);
             assists.get(0).aResult = DLMSProtocol.write(paraModel, commDevice);
@@ -319,10 +343,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assists.get(0).obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             paraModel.WriteData = dlmsService.GetXADRCode(assists);
             assists.get(0).aResult = DLMSProtocol.write(paraModel, commDevice);
@@ -354,10 +380,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             if (recByt == null || recByt.length == 0) {
@@ -390,10 +418,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             if (recByt == null || recByt.length == 0) {
@@ -434,10 +464,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             if (debugMode) {
                 Log.v("ReadCapture", "准备开始捕获对象=" + paraModel.OBISattri);
@@ -473,10 +505,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             if (debugMode) {
                 Log.v("ReadCapture", "准备开始捕获对象=" + paraModel.OBISattri);
@@ -488,6 +522,8 @@ public class CommServer extends AbsCommServer {
             if (recByt == null || recByt.length == 0) {
                 return assist;
             }
+            assist.recBytes = recByt;
+            assist.recStrData = HexStringUtil.bytesToHexString(recByt);
             assist = dlmsService.TranBillingCodeNew(recByt, assist);
         } catch (Exception e) {
             if (debugMode) {
@@ -502,20 +538,23 @@ public class CommServer extends AbsCommServer {
 
     /**
      * 捕获负荷 对象
-     * @param paraModel HXFramePara
+     *
+     * @param paraModel  HXFramePara
      * @param commDevice AbsCommAction
-     * @param assist TranXADRAssist
+     * @param assist     TranXADRAssist
      * @return TranXADRAssist
      */
-    public synchronized TranXADRAssist ReadProfiles(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist){
+    public synchronized TranXADRAssist ReadProfiles(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist) {
         try {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             if (debugMode) {
                 Log.v("ReadProfiles", "准备开始捕获对象=" + paraModel.OBISattri);
@@ -551,10 +590,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             if (debugMode) {
                 Log.v("ReadCapture", "准备开始捕获对象=" + paraModel.OBISattri);
@@ -591,11 +632,14 @@ public class CommServer extends AbsCommServer {
             assist.obis = paraModel.OBISattri;
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
+
             assist.dataType = HexDataFormat.getDataType(paraModel.getWriteDataType());
             assist.writeData = paraModel.WriteData;
             paraModel.WriteData = dlmsService.GetXADRCode(assist);
@@ -620,10 +664,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assist.obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             paraModel.WriteData = dlmsService.GetXADRCode(assist);
             assist.aResult = DLMSProtocol.write(paraModel, commDevice);
@@ -649,10 +695,12 @@ public class CommServer extends AbsCommServer {
             assist.obis = paraModel.OBISattri;
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             assist.aResult = DLMSProtocol.action(paraModel, commDevice);
         } catch (Exception e) {
@@ -670,10 +718,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(assist.obis);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             assist.aResult = DLMSProtocol.action(paraModel, commDevice);
         } catch (Exception e) {
@@ -699,10 +749,12 @@ public class CommServer extends AbsCommServer {
             //转换数据类型
             paraModel.OBISattri = dlmsService.fnChangeOBIS(paraModel.OBISattri);
             paraModel.sysTitleC = Str2Hex(paraModel.StrsysTitleC);
-            if (paraModel.CommDeviceType.equals("Optical")) {
+            if (paraModel.CommDeviceType.equals(HexDevice.OPTICAL)) {
                 paraModel.DestAddr = new byte[]{0x03};
-            } else if (paraModel.CommDeviceType.equals("RF")) {
+            } else if (paraModel.CommDeviceType.equals(HexDevice.RF)) {
                 paraModel.DestAddr = GetCommuniteMeterAddr(paraModel.strMeterNo);
+            } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
+                paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
             if (debugMode) {
                 Log.v("actionAndRead", "开始读取=" + paraModel.OBISattri);

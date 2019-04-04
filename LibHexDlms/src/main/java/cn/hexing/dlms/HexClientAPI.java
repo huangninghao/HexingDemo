@@ -228,6 +228,18 @@ public class HexClientAPI {
                     cPara.ComName = TextUtils.isEmpty(strComName) ? HexDevice.COMM_NAME_RF2 : strComName;
                     framePara.CommDeviceType = HexDevice.RF;// RF  Optical
                     this.baudRate = this.baudRate == 300 ? 4800 : this.baudRate;
+                    if (this.sleepSend <= 0) {
+                        this.sleepSend = 20;
+                    }
+                    break;
+                case HexDevice.METHOD_MBUS:
+                    iComm = new CommOpticalSerialPort();
+                    cPara.ComName = TextUtils.isEmpty(strComName) ? HexDevice.COMM_NAME_RF2 : strComName;
+                    framePara.CommDeviceType = HexDevice.MBUS;// RF  Optical
+                    this.baudRate = this.baudRate == 300 ? 4800 : this.baudRate;
+                    if (this.sleepSend <= 0) {
+                        this.sleepSend = 20;
+                    }
                     break;
                 default:
                     throw new Exception("未设置通讯方式！");
@@ -593,6 +605,35 @@ public class HexClientAPI {
             closeSerial();
         }
         return tranXADRAssist;
+    }
+
+    /**
+     * 读捕获对象及数据块
+     *
+     * @param assist obis 捕获对象obis obisTwo 数据块obis
+     */
+    public synchronized void readCaptureAndBlock(TranXADRAssist assist) {
+        if (openSerial()) {
+            framePara.OBISattri = assist.obis;
+            String dataType = "Struct_Capture";
+            framePara.FirstFrame = this.firstFrame;
+            framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
+            framePara.setHandWaitTime((int) this.handWaitTime);
+            framePara.writeDataType = dataType;
+            framePara.setRecDataType(dataType);
+            assist = commServer.ReadCaptureNew(framePara, iComm, assist);
+            if (assist.structList.size() > 0) {
+                SystemClock.sleep(100);
+                framePara.FirstFrame = false;
+                framePara.isHands = false;
+                framePara.OBISattri = assist.obisTwo;//重新赋值
+                List<TranXADRAssist> dataList = commServer.ReadBlockNew(framePara, iComm, assist);
+                listener.onSuccess(dataList);
+            } else {
+                listener.onFailure("Read Capture fail");
+            }
+            closeSerial();
+        }
     }
 
     /**

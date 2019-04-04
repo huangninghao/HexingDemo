@@ -127,7 +127,7 @@ public class ParaConfig {
         this.encryptionMode = HXFramePara.AuthMethod.AES_GCM_128;
         this.strMeterNo = "254455455";
         this.deviceType = HexDevice.KT50;
-        this.sleepSendTime = 5;
+        this.sleepSendTime = 0;
         this.sleepReceiveTime = 0;
         this.debugMode = false;
         this.strMeterPwd = "000000000000";

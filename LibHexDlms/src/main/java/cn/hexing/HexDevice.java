@@ -53,7 +53,13 @@ public class HexDevice {
      */
     public final static int METHOD_ZIGBEE = 4;
 
+    /**
+     * mBus 通讯模式
+     */
+    public final static int METHOD_MBUS = 5;
+
     public final static String RF = "RF";
     public final static String OPTICAL = "Optical";
     public final static String ZIGBEE = "Zigbee";
+    public final static String MBUS = "MBus";
 }

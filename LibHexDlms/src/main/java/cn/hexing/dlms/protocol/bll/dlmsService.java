@@ -1379,6 +1379,8 @@ public class dlmsService {
             for (int i = 0; i < rowSize; i++) {
                 tranXADRAssist = new TranXADRAssist();
                 tranXADRAssist.obis = assist.obis;
+                tranXADRAssist.markNo = assist.markNo;
+                tranXADRAssist.readType = assist.readType;
                 itemList = new ArrayList<>();
                 tranXADRAssist.structList = itemList;
                 dataList.add(tranXADRAssist);

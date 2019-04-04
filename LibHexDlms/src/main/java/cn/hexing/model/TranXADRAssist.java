@@ -42,7 +42,7 @@ public class TranXADRAssist implements Cloneable, Serializable {
     public String errMsg = "";//错误信息
     public String recType; //接收固件返回待解析数据类型
     public String markNo = "";//唯一标识
-
+    public String readType = "";//读取类型 唯一标识拓展字段
     public int dataType = -1;//数据类型
     public String comments = ""; //bit
     public String coding = ""; //当dataType = Octs  有几种模式 输出格式 Hex 、 Ascs 等

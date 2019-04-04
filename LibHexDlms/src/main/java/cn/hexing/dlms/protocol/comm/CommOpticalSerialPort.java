@@ -119,7 +119,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                         if (index > 1 && rtnByt[index - 1] == 0x0a) {
                             if ((rtnByt[index - 2] & 0xff) == 0x8d) {
                                 delay_occurZJ = true;
-                                System.out.println(TAG + "||满足8D0A结束");
+                                //System.out.println(TAG + "||满足8D0A结束");
                                 break;
                             }
                         }
@@ -195,11 +195,11 @@ public class CommOpticalSerialPort extends AbsCommAction {
                         if (Index > 1 && rtnByt[Index - 1] == 0x0a) {
                             if ((rtnByt[Index - 2] & 0xff) == 0x8d) {
                                 delay_occurZJ = true;
-                                System.out.println(TAG + "||满足8D0A结束");
+                                //System.out.println(TAG + "||满足8D0A结束");
                                 break;
                             } else if ((rtnByt[Index - 2] & 0xff) == 0x0d) {
                                 delay_occurZJ = true;
-                                System.out.println(TAG + "||满足0D0A结束");
+                                //System.out.println(TAG + "||满足0D0A结束");
                                 break;
                             }
                         }
@@ -216,7 +216,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                                 //System.out.println(TAG + "||" + hexLen + "||" + recLen);
                                 if (hexLen == recLen) {
                                     delay_occurZJ = true;
-                                    System.out.println(TAG + "||满足7E开头7E结束");
+                                    //System.out.println(TAG + "||满足7E开头7E结束");
                                     break;
                                 }
                             }
