@@ -65,7 +65,7 @@ public class FileUtil {
         File[] files = file.listFiles();
         int index = 0;
         Map<String, Object> fileItem;
-        if (files.length > 0) {
+        if (files != null && files.length > 0) {
             for (File item : files) {
                 if (item.isDirectory()) {
                     //目录

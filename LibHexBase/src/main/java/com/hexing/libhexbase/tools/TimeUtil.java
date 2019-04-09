@@ -169,6 +169,23 @@ public class TimeUtil {
         return sf.format(d);
     }
 
+    /**
+     * 时间戳转换成字符窜
+     *
+     * @param dateTime String
+     * @param pattern  时间格式
+     * @return 字符串
+     */
+    public static String getTimeFormat(String dateTime, String pattern) {
+        SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.getDefault());
+        try {
+            Date d1 = format.parse(dateTime);
+            return format.format(d1);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return dateTime;
+    }
 
     /**
      * 时间戳转换成字符窜
@@ -347,6 +364,73 @@ public class TimeUtil {
         c.setTime(startDate);
         c.set(Calendar.SECOND, c.get(Calendar.SECOND) + seconds);
         return c.getTime();
+    }
+
+    /**
+     * 计算日期相差 天数
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @param format 时间格式
+     * @return long
+     */
+    public static long dateDiff(String startTime, String endTime, String format) {
+        // 按照传入的格式生成一个simpledateformate对象
+        SimpleDateFormat sd = new SimpleDateFormat(format, Locale.getDefault());
+        long nd = 1000 * 24 * 60 * 60;// 一天的毫秒数
+//        long nh = 1000 * 60 * 60;// 一小时的毫秒数
+//        long nm = 1000 * 60;// 一分钟的毫秒数
+//        long ns = 1000;// 一秒钟的毫秒数
+        long diff;
+        long day = 0;
+        try {
+            // 获得两个时间的毫秒时间差异
+            diff = sd.parse(endTime).getTime()
+                    - sd.parse(startTime).getTime();
+            day = diff / nd;// 计算差多少天
+            //long hour = diff % nd / nh;// 计算差多少小时
+            //long min = diff % nd % nh / nm;// 计算差多少分钟
+           // long sec = diff % nd % nh % nm / ns;// 计算差多少秒
+            // 输出结果
+//            System.out.println("时间相差：" + day + "天" + hour + "小时" + min
+//                    + "分钟" + sec + "秒。");
+            if (day >= 1) {
+                return day;
+            } else {
+                if (day == 0) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+
+            }
+
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return 0;
+
+    }
+
+    /**
+     * 计算日期 月份相差
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return int
+     */
+    public static int dateDiffMonth(String startTime, String endTime) {
+        // 按照传入的格式生成一个simpledateformate对象
+        SimpleDateFormat sdf = new SimpleDateFormat(DEFAULT_MONTH_FORMAT, Locale.getDefault());
+        Calendar bef = Calendar.getInstance();
+        Calendar aft = Calendar.getInstance();
+        try {
+            bef.setTime(sdf.parse(startTime));
+            aft.setTime(sdf.parse(endTime));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        int result = aft.get(Calendar.MONTH) - bef.get(Calendar.MONTH);
+        int month = (aft.get(Calendar.YEAR) - bef.get(Calendar.YEAR)) * 12;
+        return Math.abs(month + result);
     }
 
     /**
