@@ -445,9 +445,9 @@ public class HXHdlcDLMS implements IProtocol {
         paraModel.Nrec = Nrec;
         paraModel.Nsend = Nsend;
         byte[] sndByt = hdlcframe.getReadRequestNormalFrame(paraModel);
-        if (!paraModel.FirstFrame) {
-            SystemClock.sleep(paraModel.SleepT);
-        }
+
+        SystemClock.sleep(paraModel.SleepT);
+
         boolean isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_NORMAL_FAILED";
@@ -614,9 +614,8 @@ public class HXHdlcDLMS implements IProtocol {
             paraModel.Nrec = Nrec;
             sndByt = hdlcframe.getWriteRequestNormalFrame(paraModel);
 
-            if (!paraModel.FirstFrame) {
-                SystemClock.sleep(paraModel.SleepT);
-            }
+            SystemClock.sleep(paraModel.SleepT);
+
             isSend = commDevice.sendByt(sndByt);
             if (!isSend) {
                 paraModel.ErrTxt = "DLMS_WRITE_FAILED";
@@ -871,9 +870,9 @@ public class HXHdlcDLMS implements IProtocol {
         paraModel.Nsend = Nsend;
         paraModel.Nrec = Nrec;
         sndByt = hdlcframe.getActionRequestNormalFrame(paraModel);
-        if (!paraModel.FirstFrame) {
-            SystemClock.sleep(paraModel.SleepT);
-        }
+
+        SystemClock.sleep(paraModel.SleepT);
+
         isSend = commDevice.sendByt(sndByt);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_ACTION_FAILED";
@@ -942,9 +941,9 @@ public class HXHdlcDLMS implements IProtocol {
         paraModel.Nsend = Nsend;
         ArrayList<Byte> rtnReceiveByt = new ArrayList<>();
         byte[] sendByte = hdlcframe.getReadRequestNormalFrame(paraModel);
-        if (!paraModel.FirstFrame) {
-            SystemClock.sleep(paraModel.SleepT);
-        }
+
+        SystemClock.sleep(paraModel.SleepT);
+
         boolean isSend = commDevice.sendByt(sendByte);
         if (!isSend) {
             paraModel.ErrTxt = "DLMS_NORMAL_FAILED";

@@ -105,6 +105,7 @@ public class HexClient21API {
         this.isBaudRateTest = config.isBaudRateTest;
         this.sleepChangeBaudRate = config.changeBaudRateSleepTime;
         this.handType = config.handType;
+        this.meterType = config.meterType;
     }
 
     /**

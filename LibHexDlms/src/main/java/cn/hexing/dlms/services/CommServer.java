@@ -387,6 +387,7 @@ public class CommServer extends AbsCommServer {
             } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
                 paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
+
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             if (recByt == null || recByt.length == 0) {
                 return dataList;
@@ -425,6 +426,7 @@ public class CommServer extends AbsCommServer {
             } else if (paraModel.CommDeviceType.equals(HexDevice.MBUS)) {
                 paraModel.DestAddr = GetMbusMeterAddr(paraModel.strMeterNo);
             }
+            paraModel.WriteData = assist.processWriteData;
             byte[] recByt = DLMSProtocol.read(paraModel, commDevice);
             if (recByt == null || recByt.length == 0) {
                 return dataList;
@@ -439,7 +441,19 @@ public class CommServer extends AbsCommServer {
             } else {
                 dataList = dlmsService.TranBillingList(recByt, assist);
             }
+            if (dataList.size() == 0 && assist.structList != null && assist.structList.size() > 0) {
+                //没有冻结数据 赋值 空数据
+                for (TranXADRAssist.StructBean structBean : assist.structList) {
+                    structBean.value = "0";
+                }
+                assist.recStrData = HexStringUtil.bytesToHexString(recByt);
+                assist.isAuto = false;
+                assist.structList.get(0).value = assist.startTime; //第一数据项改成时间值
+                dataList.add(assist);
+            }
+
             dataList.get(0).recBytes = recByt;
+
         } catch (Exception e) {
             System.out.println("ReadBlockNew数据接收错误=" + e.getMessage());
             if (listener != null) {

@@ -54,7 +54,7 @@ public class TranXADRAssist implements Cloneable, Serializable {
     public int getCodingType() {
         return codingType;
     }
-
+    public boolean isAuto = true;// false 为手动编辑数据 true 成功读取固件数据
     private int codingType = -1; //替换 coding string
     public String format = "";//
     public int size = 0; //字节长度
@@ -82,7 +82,7 @@ public class TranXADRAssist implements Cloneable, Serializable {
         public String value = "";//数据
         public int dataType = -1;//数据类型
         public String comments = ""; //
-
+        public boolean isAuto = true;// false 为手动编辑数据 true 成功读取固件数据
         public String coding = ""; //当dataType = Octs  有几种模式 输出格式 Hex 、 Ascs 等
 
         public void setCodingType(@CodingType.DataTypes int codingType) {

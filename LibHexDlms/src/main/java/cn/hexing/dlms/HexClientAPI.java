@@ -115,6 +115,7 @@ public class HexClientAPI {
         this.firstFrame = config.firstFrame;
         this.isHands = config.isHands;
         this.sleepSend = config.sleepSendTime;
+        this.sleepReceiveT = config.sleepReceiveTime;
         this.debugMode = config.debugMode;
         this.sleepChangeBaudRate = config.changeBaudRateSleepTime;
         this.fixedChannel = config.fixedChannel;
@@ -627,7 +628,12 @@ public class HexClientAPI {
                 framePara.FirstFrame = false;
                 framePara.isHands = false;
                 framePara.OBISattri = assist.obisTwo;//重新赋值
+                if (!TextUtils.isEmpty(assist.startTime) && !TextUtils.isEmpty(assist.endTime)) {
+                    //时间拼接
+                    assist.processWriteData = writeTimeData(assist.startTime, assist.endTime);
+                }
                 List<TranXADRAssist> dataList = commServer.ReadBlockNew(framePara, iComm, assist);
+
                 listener.onSuccess(dataList);
             } else {
                 listener.onFailure("Read Capture fail");
@@ -1021,7 +1027,7 @@ public class HexClientAPI {
         writeData.append(HexStringUtil.toHex(59));
         writeData.append(last);
         //selected values 数据类型 数组 01 00获取全部
-        writeData.append("0100");
+        writeData.append("010000");
         return writeData.toString();
     }
 
