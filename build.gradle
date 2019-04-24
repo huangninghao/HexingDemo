@@ -32,7 +32,7 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-////
+//////
 //apply plugin: 'com.novoda.bintray-release'
 //publish {
 //    userOrg = 'caibinglong1987'//bintray.com用户名
