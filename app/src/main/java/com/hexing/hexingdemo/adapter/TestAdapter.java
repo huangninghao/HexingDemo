@@ -20,7 +20,7 @@ import java.util.List;
  * 包名       com.zhon.frame.mvp.login.adapter
  * 文件名:    TestAdapter
  * 创建者:    ZJB
- * 创建时间:  2017/9/7 on 13:43l
+ * 创建时间:  2017/9/7 on 13:43lp
  * 描述:     TODO
  */
 public class TestAdapter extends RecyclerView.Adapter<TestAdapter.viewHolder> {
