@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: org.apache.servicemix.bundles:org.apache.servicemix.bundles.bcprov-jdk15on:1.59_1@jar">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../.gradle/caches/modules-2/files-2.1/org.apache.servicemix.bundles/org.apache.servicemix.bundles.bcprov-jdk15on/1.59_1/96f073e390db20064b25fabce70cbbab8fdcb9c4/org.apache.servicemix.bundles.bcprov-jdk15on-1.59_1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/../.gradle/caches/modules-2/files-2.1/org.apache.servicemix.bundles/org.apache.servicemix.bundles.bcprov-jdk15on/1.59_1/8cad0e5cb6f946857753043833899e1bccbe52a9/org.apache.servicemix.bundles.bcprov-jdk15on-1.59_1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
