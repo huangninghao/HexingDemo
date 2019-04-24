@@ -18,7 +18,7 @@ import java.util.List;
 /*
  * 项目名:    BaseFrame
  * 包名       com.zhon.frame.mvp.login.adapter
- * 文件名:    TestAdapter
+ * 文件名:    TestAdapterl
  * 创建者:    ZJB
  * 创建时间:  2017/9/7 on 13:43l
  * 描述:     TODO
