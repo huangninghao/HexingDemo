@@ -40,7 +40,7 @@ public class TestAdapter extends RecyclerView.Adapter<TestAdapter.viewHolder> {
 
     @Override
     public void onBindViewHolder(viewHolder holder, int position) {
-        Glide.with(context).load(list.get(position).getImages().get(0)).crossFade().into(holder.imageView);
+        //Glide.with(context).load(list.get(position).getImages().get(0)).crossFade().into(holder.imageView);
         holder.textView.setText(list.get(position).getTitle());
         holder.textView1.setText("2017-9-7 12:00");
     }
