@@ -1,0 +1,10 @@
+ext {
+    dependencies = [
+
+            eventBus: 'org.greenrobot:eventbus:3.1.1'
+
+
+    ]
+
+
+}
