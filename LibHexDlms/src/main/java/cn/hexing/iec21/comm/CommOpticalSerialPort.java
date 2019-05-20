@@ -2,6 +2,8 @@ package cn.hexing.iec21.comm;
 
 import com.android.SerialPort.SerialPort;
 
+import org.greenrobot.eventbus.EventBus;
+
 import java.io.FileDescriptor;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -9,6 +11,7 @@ import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import cn.hexing.EventMsg;
 import cn.hexing.HexStringUtil;
 import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.model.CommPara;
@@ -90,6 +93,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
             mOutputStream.write(sndByte, 0, sndByte.length);// write(sndByte);
             result = true;
             System.out.println("Send:" + HexStringUtil.bytesToHexString(sndByte) + "||" + Arrays.toString(sndByte));
+            EventBus.getDefault().post(new EventMsg("Send:"+ HexStringUtil.bytesToHexString(sndByte) + "||" + Arrays.toString(sndByte)));
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -147,6 +152,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
                 System.out.println("Rec:" + res);
+                EventBus.getDefault().post(new EventMsg("Rec:" + res));
+
             }
 
 
@@ -214,6 +221,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
                 System.out.println("Rec:" + res);
+                EventBus.getDefault().post(new EventMsg("Rec:" + res));
             }
 
 
@@ -283,6 +291,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
                 System.out.println("Rec:" + res);
+                EventBus.getDefault().post(new EventMsg("Rec:" + res));
             }
 
         } catch (Exception ex) {

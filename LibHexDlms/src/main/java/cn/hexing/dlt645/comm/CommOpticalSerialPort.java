@@ -5,6 +5,8 @@ import android.os.SystemClock;
 
 import com.android.SerialPort.SerialPort;
 
+import org.greenrobot.eventbus.EventBus;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import cn.hexing.EventMsg;
 import cn.hexing.HexDevice;
 import cn.hexing.HexStringUtil;
 import cn.hexing.dlt645.CommServer;
@@ -232,6 +235,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 String res = HexStringUtil.bytesToHexString(byteData);
                 if (HexClient645API.getDebugMode()) {
                     System.out.println("Rec:" + res);
+                    EventBus.getDefault().post(new EventMsg("Rec:" + res));
+
                 }
             }
 
@@ -300,6 +305,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 String res = HexStringUtil.bytesToHexString(byteData);
                 if (HexClient645API.getDebugMode()) {
                     System.out.println("Rec:" + res);
+                    EventBus.getDefault().post(new EventMsg("Rec:" + res));
+
                 }
             }
 
@@ -348,6 +355,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
                 System.out.println("Rec:" + res);
+                EventBus.getDefault().post(new EventMsg("Rec:" + res));
+
             }
 
 
@@ -383,6 +392,8 @@ public class CommOpticalSerialPort extends AbsCommAction {
             result = true;
             String res = HexStringUtil.bytesToHexString(sndByte);
             System.out.println("Send:" + res);
+            EventBus.getDefault().post(new EventMsg("Send:" + res));
+
         } catch (Exception e) {
             e.printStackTrace();
         }

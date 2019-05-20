@@ -3,12 +3,15 @@ package cn.hexing.dlms.protocol.comm;
 
 import android.os.SystemClock;
 
+import cn.hexing.EventMsg;
 import cn.hexing.HexStringUtil;
 import cn.hexing.iComm.AbsCommAction;
 import cn.hexing.dlms.IHexListener;
 import cn.hexing.model.CommPara;
 
 import com.android.SerialPort.SerialPort;
+
+import org.greenrobot.eventbus.EventBus;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -231,6 +234,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                 byteData = Arrays.copyOf(rtnByt, Index);
                 String res = HexStringUtil.bytesToHexString(byteData);
                 System.out.println("Rec:" + res);
+                EventBus.getDefault().post(new EventMsg("Rec:" + res));
             }
 
 
@@ -255,6 +259,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
             result = true;
             String res = HexStringUtil.bytesToHexString(sndByte);
             System.out.println("Send:" + res);
+            EventBus.getDefault().post(new EventMsg("Send:" + res));
         } catch (Exception e) {
             e.printStackTrace();
         }
