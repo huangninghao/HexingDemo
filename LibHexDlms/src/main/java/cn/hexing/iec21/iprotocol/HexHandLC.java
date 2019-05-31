@@ -580,8 +580,12 @@ public class HexHandLC implements IProtocol {
                     return false;
                 }
             } else if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
-                if (!changeChannel(paraModel, commDevice)) {
-                    paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+//                if (!changeChannel(paraModel, commDevice)) {
+//                    paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+//                    return false;
+//                }
+                if (!Handclasp(paraModel, commDevice)) {
+                    paraModel.ErrTxt = "DLMS_AUTH_FAILED";
                     return false;
                 }
             }
@@ -689,8 +693,12 @@ public class HexHandLC implements IProtocol {
                         return false;
                     }
                 } else {
-                    if (!changeChannel(paraModel, commDevice)) {
-                        paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+//                    if (!changeChannel(paraModel, commDevice)) {
+//                        paraModel.ErrTxt = "DLMS_CHANNEL_FAILED";
+//                        return false;
+//                    }
+                    if (!Handclasp(paraModel, commDevice)) {
+                        paraModel.ErrTxt = "DLMS_AUTH_FAILED";
                         return false;
                     }
                 }
@@ -711,43 +719,104 @@ public class HexHandLC implements IProtocol {
                 }
             }
         }
-        // action.request_normal
-        frameCnt++;
-        paraModel.frameCnt = frameCnt;
-        paraModel.Nsend = Nsend;
-        paraModel.Nrec = Nrec;
-        sndByt = HexStringUtil.hexToByte(hdlcframe.getActionFrame(paraModel));
-        if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
-            SystemClock.sleep(20);
-        }
-        isSend = commDevice.sendByt(sndByt);
-        if (!isSend) {
-            paraModel.ErrTxt = "DLMS_ACTION_FAILED";
-            return false;
-        }
-        Nsend++;
-        paraModel.Nsend = Nsend;
-        receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime, paraModel.recDataConversion);
-        if (receiveByt != null && receiveByt.length > 0) {
-            Nrec++;
+        if ((paraModel.WriteData.length() / 2 + 18) < paraModel.MaxSendInfo_Value) {
+            frameCnt++;
+            paraModel.frameCnt = frameCnt;
+            paraModel.Nsend = Nsend;
             paraModel.Nrec = Nrec;
+            sndByt = HexStringUtil.hexToByte(hdlcframe.getActionFrame(paraModel));
+            if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
+                SystemClock.sleep(20);
+            }
+            isSend = commDevice.sendByt(sndByt);
+            if (!isSend) {
+                paraModel.ErrTxt = "DLMS_WRITE_FAILED";
+                return false;
+            }
+            Nsend++;
+            paraModel.Nsend = Nsend;
+            receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime, paraModel.recDataConversion);
+            if (receiveByt == null || receiveByt.length == 0) {
+                paraModel.ErrTxt = "receiver byte is empty";
+                return false;
+            }
+            if (receiveByt[receiveByt.length - 1] != (char) 0x06) {
+                //06 != ACK
+                paraModel.ErrTxt = "receiver byte is " + (char) receiveByt[receiveByt.length - 1];
+                return false;
+            }
+            return true;
         } else {
-            paraModel.ErrTxt = "DLMS_OVER_TIME";
-            return false;
+            // #region set.request_block
+            int BlockNum = 1;
+            while (paraModel.WriteData.length() > 0) {
+                frameCnt++;
+                paraModel.frameCnt = frameCnt;
+                paraModel.BlockNum = BlockNum;
+                paraModel.Nrec = Nrec;
+                paraModel.Nsend = Nsend;
+                sndByt = HexStringUtil.hexToByte(hdlcframe.getActionFrame(paraModel));
+                isSend = commDevice.sendByt(sndByt);
+                if (!isSend) {
+                    paraModel.ErrTxt = "DLMS_BLOCK_FAILED";
+                    return false;
+                }
+                Nsend++;
+                paraModel.Nsend = Nsend;
+                if (BlockNum == 0xff) {
+                }
+                BlockNum++;
+                receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime, paraModel.recDataConversion);
+
+                if (receiveByt != null && receiveByt.length > 0 && receiveByt[receiveByt.length - 1] == (char) 0x06) {
+                    Nrec++;
+                    paraModel.Nrec = Nrec;
+                } else {
+                    paraModel.ErrTxt = "DLMS_OVER_TIME";
+                    return false;
+                }
+            }
+            return true;
         }
-        if (paraModel.enLevel != 0x00)// 如果有加密或认证，则将收到数据还原
-        {
-            // receiveByt = hdlcframe.getOriginalData(receiveByt, paraModel);
-        }
-        if (receiveByt[10 + paraModel.DestAddr.length] == 0xd8) {
-            paraModel.ErrTxt = "DLMS_SER_NOTALLOWED";
-            return false;
-        }
-        if (receiveByt[13 + paraModel.DestAddr.length] != 0x00) {
-            paraModel.ErrTxt = accessResult(receiveByt[13 + paraModel.DestAddr.length]);
-            return false;
-        }
-        return true;
+        // action.request_normal
+
+
+//        frameCnt++;
+//        paraModel.frameCnt = frameCnt;
+//        paraModel.Nsend = Nsend;
+//        paraModel.Nrec = Nrec;
+//        sndByt = HexStringUtil.hexToByte(hdlcframe.getActionFrame(paraModel));
+//        if (HexDevice.RF.equals(paraModel.CommDeviceType)) {
+//            SystemClock.sleep(20);
+//        }
+//        isSend = commDevice.sendByt(sndByt);
+//        if (!isSend) {
+//            paraModel.ErrTxt = "DLMS_ACTION_FAILED";
+//            return false;
+//        }
+//        Nsend++;
+//        paraModel.Nsend = Nsend;
+//        receiveByt = commDevice.receiveByt(paraModel.ByteWaitT, paraModel.dataFrameWaitTime, paraModel.recDataConversion);
+//        if (receiveByt != null && receiveByt.length > 0) {
+//            Nrec++;
+//            paraModel.Nrec = Nrec;
+//        } else {
+//            paraModel.ErrTxt = "DLMS_OVER_TIME";
+//            return false;
+//        }
+//        if (paraModel.enLevel != 0x00)// 如果有加密或认证，则将收到数据还原
+//        {
+//            // receiveByt = hdlcframe.getOriginalData(receiveByt, paraModel);
+//        }
+//        if (receiveByt[10 + paraModel.DestAddr.length] == 0xd8) {
+//            paraModel.ErrTxt = "DLMS_SER_NOTALLOWED";
+//            return false;
+//        }
+//        if (receiveByt[13 + paraModel.DestAddr.length] != 0x00) {
+//            paraModel.ErrTxt = accessResult(receiveByt[13 + paraModel.DestAddr.length]);
+//            return false;
+//        }
+//        return true;
     }
 
 

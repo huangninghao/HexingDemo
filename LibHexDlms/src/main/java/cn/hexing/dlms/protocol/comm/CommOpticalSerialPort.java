@@ -73,8 +73,12 @@ public class CommOpticalSerialPort extends AbsCommAction {
             mInputStream = mSerialPort.getInputStream(mfd);
             aOpenStatus = true;
         } catch (Exception ex) {
+            EventBus.getDefault().post(new EventMsg("OpenPort failed:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
             return false;
         }
+
+        EventBus.getDefault().post(new EventMsg("OpenPort:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
+
         return true;
     }
 
@@ -88,7 +92,9 @@ public class CommOpticalSerialPort extends AbsCommAction {
         } catch (Exception ex) {
             return false;
         }
+        EventBus.getDefault().post(new EventMsg("ClosePort:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
         return true;
+
     }
 
     @Override

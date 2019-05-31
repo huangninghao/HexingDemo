@@ -35,7 +35,7 @@ allprojects {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '.so'])
-    implementation 'com.android.support:support-annotations:28.0.0'
+    implementation 'com.android.support:support-annotations:24.0.0'
     implementation 'org.apache.servicemix.bundles:org.apache.servicemix.bundles.bcprov-jdk15on:1.59_1'
     //compile 'com.speedata:deivice:1.5.4'
     implementation rootProject.ext.dependencies['eventBus']
@@ -52,15 +52,21 @@ artifacts {
     archives androidSourcesJar
 }
 
-
 apply plugin: 'com.novoda.bintray-release'
 publish {
-    userOrg = 'caibinglong1987'//bintray.com用户名
-    groupId = 'com.hexing'//jcenter上的路径
-    artifactId = 'communication'//项目名称
-    publishVersion = '2.1.5'//版本号  3.0之后 不兼容之前的版本
+    userOrg = 'huangninghao'//bintray.com用户名
+    groupId = 'com.hx'//jcenter上的路径
+    artifactId = 'hexcom'//项目名称
+    publishVersion = '1.0.1'//版本号  3.0之后 不兼容之前的版本
     desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
-    website = 'https://github.com/caibinglong1987/HexingDemo'
+    website = 'https://github.com/huangninghao/HexingDemo.git'
 }
-
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.hexing'//jcenter上的路径
+//    artifactId = 'communication'//项目名称
+//    publishVersion = '3.2.3'//版本号  3.0之后 不兼容之前的版本
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
 

@@ -41,9 +41,13 @@ public abstract class AbsCommServer implements ICommServer {
         return null;
     }
 
+
     @Override
-    public TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice) {
+    public TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist) {
         return null;
     }
-
+    @Override
+    public TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice ) {
+        return null;
+    }
 }

@@ -74,6 +74,8 @@ public class AnalysisService {
             stringBuilder.append(HexStringUtil.padRight(String.valueOf(minute),2,'0'));
             stringBuilder.append(HexStringUtil.padRight(String.valueOf(second),2,'0'));
         }
+        else{stringBuilder.append(assist.writeData);}
+
         return stringBuilder.toString().toUpperCase();
     }
 

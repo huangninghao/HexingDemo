@@ -1,5 +1,7 @@
 package cn.hexing.iec21.comm;
 
+import android.os.SystemClock;
+
 import com.android.SerialPort.SerialPort;
 
 import org.greenrobot.eventbus.EventBus;
@@ -63,8 +65,10 @@ public class CommOpticalSerialPort extends AbsCommAction {
             mInputStream = mSerialPort.getInputStream(mfd);
             aOpenStatus = true;
         } catch (Exception ex) {
+            EventBus.getDefault().post(new EventMsg("OpenPort failed:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
             return false;
         }
+        EventBus.getDefault().post(new EventMsg("OpenPort:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
         return true;
     }
 
@@ -78,6 +82,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         } catch (Exception ex) {
             return false;
         }
+        EventBus.getDefault().post(new EventMsg("ClosePort:" + uartpath+","+baudRate+","+dataBit+","+parity+","+stopBit));
         return true;
     }
 
@@ -109,6 +114,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         delay_occurZJ = false;
         int size;
         int Index = 0;
+
         startTimer(witT);
         try {
             while (!delay_occurZJ) {
@@ -175,6 +181,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         int size;
         int Index = 0;
         startTimer(WaitT);
+        SystemClock.sleep(SleepT);
         try {
             while (!delay_occurZJ) {
                 if (mInputStream.available() > 0) {
@@ -242,7 +249,9 @@ public class CommOpticalSerialPort extends AbsCommAction {
         delay_occurZJ = false;
         int size;
         int Index = 0;
+        SystemClock.sleep(sleepT);
         startTimer(waitT);
+
         try {
             while (!delay_occurZJ) {
                 if (mInputStream.available() > 0) {

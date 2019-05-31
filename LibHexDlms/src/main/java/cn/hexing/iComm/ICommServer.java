@@ -63,6 +63,7 @@ public interface ICommServer {
      * @param commDevice 接口对象
      * @return bool
      */
+    TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist);
     TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice);
 
 }

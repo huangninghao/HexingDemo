@@ -162,8 +162,32 @@ public class CommServer extends AbsCommServer {
     }
 
     @Override
-    public TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice) {
-        return super.action(paraModel, commDevice);
+    public TranXADRAssist action(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist) {
+        try {
+            //转换数据类型
+            paraModel.OBISattri = assist.obis;
+            paraModel.isConBaudRate = assist.autoBaudRate;
+            if (paraModel.CommDeviceType.equals("Optical")) {
+                paraModel.DestAddr = new byte[]{0x03};
+            } else if (paraModel.CommDeviceType.equals("RF")) {
+                paraModel.DestAddr = HexStringUtil.hexToByte(paraModel.strMeterNo);
+            }
+            paraModel.WriteData = AnalysisService.GetXADRCode(assist);
+            assist.aResult = protocol.action(paraModel, commDevice);
+        } catch (Exception e) {
+            if (debugMode) {
+                Log.e("Read异常", "错误=" + e.getMessage());
+            }
+            if (listener != null) {
+                listener.onFailure(e.getMessage());
+            }
+            assist.errMsg = e.getMessage();
+            assist.aResult = false;
+        }
+        if (debugMode) {
+            Log.v("数据解析", "数据接收=" + paraModel.ErrTxt);
+        }
+        return assist;
     }
 
     /**

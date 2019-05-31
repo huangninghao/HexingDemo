@@ -291,7 +291,7 @@ public class HexClient21API {
                             assist = commServer.write(framePara, iComm, assist);
                             break;
                         case HexAction.ACTION_EXECUTE:
-                            assist = commServer.action(framePara, iComm);
+                            assist = commServer.action(framePara, iComm,assist);
                             break;
                     }
                     if (assist.aResult) {
