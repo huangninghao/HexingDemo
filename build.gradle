@@ -8,7 +8,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.0'
+        classpath 'com.android.tools.build:gradle:3.1.2'
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
         classpath 'com.novoda:bintray-release:0.8.0'
@@ -21,6 +21,7 @@ allprojects {
         google()
         jcenter()
         mavenCentral()
+        //maven { url 'https://hnh.bintray.com/maven' }
     }
 
     gradle.projectsEvaluated {
@@ -34,13 +35,25 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-//////
+//apply plugin: 'com.novoda.bintray-release'
+//publish {
+//    userOrg = 'caibinglong1987'//bintray.com用户名
+//    groupId = 'com.hexing'//jcenter上的路径
+//    artifactId = 'communication'//项目名称
+//    publishVersion = '3.2.0'//版本号
+//    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//}
+//
+//
+
+
 //apply plugin: 'com.novoda.bintray-release'
 //publish {
 //    userOrg = 'caibinglong1987'//bintray.com用户名
 //    groupId = 'com.hexing.dlms'//jcenter上的路径
 //    artifactId = 'LibHexDlms'//项目名称
-//    publishVersion = '1.2.8'//版本号
+//    publishVersion = '3.2.0'//版本号
 //    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
 //    website = 'https://github.com/caibinglong1987/HexingDemo'
 //}
@@ -91,3 +104,4 @@ task clean(type: Delete) {
 //    website = 'https://github.com/caibinglong1987/HexingDemo'
 //}
 //./gradlew build bintrayUpload -PbintrayUser=caibinglong1987 -PbintrayKey=6a918791f1a4bbf6d8c70a285980ac91ebde1d57 -PdryRun=false
+//./gradlew build bintrayUpload -PbintrayUser=huangninghao -PbintrayKey=deff044101916c7ebd5845cc426366dee3ec6eb1 -PdryRun=false

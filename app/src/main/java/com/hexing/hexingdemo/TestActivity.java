@@ -3,6 +3,8 @@ package com.hexing.hexingdemo;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.view.View;
+import android.widget.Button;
 
 import com.hexing.hexingdemo.adapter.TestAdapter;
 import com.hexing.hexingdemo.bean.TestBean;
@@ -25,6 +27,7 @@ public class TestActivity extends RxMvpBaseActivity<TestContact.presenter> imple
 
     private List<TestBean.StoriesBean> list = new ArrayList<>();//数据
     private TestAdapter adapter;
+    private Button button;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +43,13 @@ public class TestActivity extends RxMvpBaseActivity<TestContact.presenter> imple
     private void init() {
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycleview);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        button=findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mvpPresenter.getData();
+            }
+        });
         adapter = new TestAdapter(list);
         recyclerView.setAdapter(adapter);
     }

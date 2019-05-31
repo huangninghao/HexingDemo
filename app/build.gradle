@@ -84,8 +84,8 @@ dependencies {
 
     implementation 'com.cbl.dialog:LibDialog:1.0.0'
     //compile project(':BluetoothLibrary')
-    implementation 'com.hexing:communication:3.1.9'
-    //implementation project(':LibHexDlms')
+    //implementation 'com.hx:hexcom:1.0.1'
+    implementation project(':LibHexDlms')
     //implementation project(':LibHexBase')
     //compile project(':HexLibDownload')
     //compile project(':LibHexSerialPort')
