@@ -49,6 +49,17 @@ public class HexClient21API {
     private long handWaitTime = 1200;
     private long dataFrameWaitTime = 1500;
     private boolean firstFrame = true;//是否第一帧
+
+    public boolean isAutoSerialPort() {
+        return autoSerialPort;
+    }
+
+    public void setAutoSerialPort(boolean autoSerialPort) {
+        this.autoSerialPort = autoSerialPort;
+    }
+
+    private boolean autoSerialPort = true;//是否自动控制端口
+
     private boolean isHands = true; //是否握手
     //8位数据位 是否转换 7位数据位发送
     private boolean isBitConversion;
@@ -260,7 +271,7 @@ public class HexClient21API {
      * @param tranXADRAssist 对象集合
      */
     public synchronized void action(List<TranXADRAssist> tranXADRAssist) {
-        if (openSerial()) {
+        if (!autoSerialPort||openSerial()) {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
             framePara.setHandWaitTime((int) this.handWaitTime);
             framePara.FirstFrame = this.firstFrame;
@@ -308,6 +319,7 @@ public class HexClient21API {
                 pos++;
                 SystemClock.sleep(framePara.SleepT);
             }
+            if(autoSerialPort)
             closeSerial();
         }
     }
