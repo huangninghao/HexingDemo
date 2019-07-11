@@ -218,6 +218,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
                             for (int m = 0; m < Index; m++) {
                                 if (((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x81)
                                         || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0xA1)
+                                        || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x9F)
                                         || ((rtnByt[m] & 0xff) == 0x68 && (rtnByt[m + 1] & 0xff) == 0x84)) {
                                     len = rtnByt[m + 2] & 0xff;
                                     if (Index - m - 2 >= len) {
@@ -380,7 +381,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
         if (!aOpenStatus || mOutputStream == null) {
             try {
                 mSerialPort = new SerialPort();
-                mfd = mSerialPort.open(HexDevice.COMM_NAME_ZIGBEE, 9600, 8, 'N', 1);
+                mfd = mSerialPort.open(HexDevice.COMM_NAME_ZIGBEE, 4800, 8, 'N', 1);
                 mOutputStream = mSerialPort.getOutputStream(mfd);
                 mInputStream = mSerialPort.getInputStream(mfd);
                 aOpenStatus = true;

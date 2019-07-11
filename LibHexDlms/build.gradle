@@ -53,20 +53,20 @@ artifacts {
 }
 
 apply plugin: 'com.novoda.bintray-release'
-publish {
-    userOrg = 'huangninghao'//bintray.com用户名
-    groupId = 'com.hx'//jcenter上的路径
-    artifactId = 'hexcom'//项目名称
-    publishVersion = '1.0.1'//版本号  3.0之后 不兼容之前的版本
-    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
-    website = 'https://github.com/huangninghao/HexingDemo.git'
-}
 //publish {
-//    userOrg = 'caibinglong1987'//bintray.com用户名
-//    groupId = 'com.hexing'//jcenter上的路径
-//    artifactId = 'communication'//项目名称
-//    publishVersion = '3.2.3'//版本号  3.0之后 不兼容之前的版本
+//    userOrg = 'huangninghao'//bintray.com用户名
+//    groupId = 'com.hx'//jcenter上的路径
+//    artifactId = 'hexcom'//项目名称
+//    publishVersion = '1.0.1'//版本号  3.0之后 不兼容之前的版本
 //    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
-//    website = 'https://github.com/caibinglong1987/HexingDemo'
+//    website = 'https://github.com/huangninghao/HexingDemo.git'
 //}
+publish {
+    userOrg = 'caibinglong1987'//bintray.com用户名
+    groupId = 'com.hexing'//jcenter上的路径
+    artifactId = 'communication'//项目名称
+    publishVersion = '3.3.8'//版本号  3.0之后 不兼容之前的版本
+    desc = 'Oh hi, this is a nice description for a project, right?'//描述，不重要
+    website = 'https://github.com/caibinglong1987/HexingDemo'
+}
 

@@ -254,6 +254,7 @@ public class CommOpticalSerialPort extends AbsCommAction {
 
         try {
             while (!delay_occurZJ) {
+                //SystemClock.sleep(sleepT);
                 if (mInputStream.available() > 0) {
                     size = mInputStream.read(rBuffer);// 刚开始为-1
 
@@ -288,6 +289,10 @@ public class CommOpticalSerialPort extends AbsCommAction {
                         } else if (Index > 3 && rtnByt[Index - 3] == 0x29 && (rtnByt[Index - 2] == 0x03 || rtnByt[Index - 2] == 0x04)) {
                             delay_occurZJ = true;
                             System.out.println(TAG + "||满足29 03或 29 04 数据帧结束");
+                            break;
+                        }else   if (Index > 1 && rtnByt[Index - 3] == 0x0A ) {
+                            delay_occurZJ = true;
+                            System.out.println(TAG + "||满足0A结束");
                             break;
                         }
 

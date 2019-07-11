@@ -53,6 +53,15 @@ public class MeterDataTypes {
     public static final int ReadInstantaneous = 0xC40F;//
     public static final int ReadInstantaneous_M = 0xC400;//multi Phase
     public static final int ReadEthernet_v1 = 0xCB20;
+    public static final int read800 = 0x383030;//multi Phase
+    public static final int read870 = 0x383730;//A电压
+    public static final int read871 = 0x383731;//B电压
+    public static final int read872 = 0x383732;//C电压
+
+    public static final int read874 = 0x383734;//A电流
+    public static final int read875 = 0x383735;//B电流
+    public static final int read876 = 0x383736;//C电流
+
 
     public static final int CustomerSearchNetWork = 1000;//自定义 搜网使用 搜采集器
     public static final int CustomerConnectCollector = 1500;//自定义 连接采集器
@@ -79,8 +88,8 @@ public class MeterDataTypes {
     @IntDef({SwitchOn, SwitchOff, RelayOn, RelayOff, ReadSetupInfo, ReadSetupInfo2, SetupMode, ReadGPRS, ReadCollect,
             CustomerSearchNetWork, CustomerExecuteSearchMeter, CustomerReadMeter, CustomerActionMeterRelay, CustomerCollGPRS
             , CustomerCollPlanID, CustomerMeterInstantaneous, CustomerMeterRelayStatus, ReadRelayStatus, ReadInstantaneous
-            , ReadInstantaneous_M, PanID, ReadDayBill, ReadEthernet_v1
-            , CustomerCOllInstallMode, CustomerCollExit, ReadPre
+            , ReadInstantaneous_M, PanID, ReadDayBill, ReadEthernet_v1,read800
+            , CustomerCOllInstallMode, CustomerCollExit, ReadPre,read870,read871,read872,read874,read875,read876
             , CustomerCollIEthernet, CustomerCollClearMeter, CustomerMeterPowerMode, CustomerMeterDaily, CustomerMeterDailyPre})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ReadDataTypes {

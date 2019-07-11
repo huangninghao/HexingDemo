@@ -154,6 +154,7 @@ public class TranXADRAssist implements Cloneable, Serializable {
         public boolean relayAction = false; //true connect false disconnect
         public List<String> meterNumberList = new ArrayList<>();//表
         public List<MeterSetupBean> meterSetupBeanList = new ArrayList<>();//表安装信息
+        public String IdFormat="";//数据格式
 
         public int getMeterDataType645Id() {
             return meterDataType645Id;

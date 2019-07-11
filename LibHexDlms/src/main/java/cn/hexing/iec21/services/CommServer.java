@@ -96,6 +96,7 @@ public class CommServer extends AbsCommServer {
     public TranXADRAssist read(HXFramePara paraModel, AbsCommAction commDevice, TranXADRAssist assist) {
         String strValue = "";
         try {
+            paraModel.WriteData = assist.writeData;
             //转换数据类型
             paraModel.OBISattri = assist.obis;
             paraModel.isConBaudRate = assist.autoBaudRate;

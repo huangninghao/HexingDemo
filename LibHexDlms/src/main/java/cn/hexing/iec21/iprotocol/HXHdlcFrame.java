@@ -240,6 +240,7 @@ public class HXHdlcFrame {
         sendData.append("29");// ")";
         sendData.append("03");
         sendData.append(checkout(sendData.substring(8)));
+        System.out.println("Send:" + sendData);
         if (para.isBitConversion) {
             return HexStringUtil.getDisplacement(sendData.toString().toUpperCase());
         }
@@ -283,6 +284,9 @@ public class HXHdlcFrame {
      */
     public String getReadRequestBlockFrame(HXFramePara para) {
         StringBuilder sendData = new StringBuilder();
+        sendData.append("7F");
+        sendData.append("7F");
+        sendData.append("7F");
         sendData.append("06");
         if (para.isBitConversion) {
             return HexStringUtil.getDisplacement(sendData.toString().toUpperCase());
@@ -371,6 +375,7 @@ public class HXHdlcFrame {
 
         sendData.append("03");
         sendData.append(checkout(sendData.substring(8)));
+        System.out.println("Send:" + sendData);
         if (para.isBitConversion) {
             return HexStringUtil.getDisplacement(sendData.toString().toUpperCase());
         }
@@ -399,6 +404,7 @@ public class HXHdlcFrame {
         sendData.append("29");// ")";
         sendData.append("03");
         sendData.append(checkout(sendData.substring(8)));
+        System.out.println("Send:" + sendData);
         if (para.isBitConversion) {
             return HexStringUtil.getDisplacement(sendData.toString().toUpperCase());
         }

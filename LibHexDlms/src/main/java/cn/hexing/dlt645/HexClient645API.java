@@ -20,6 +20,7 @@ import cn.hexing.ParaConfig;
 import cn.hexing.dlms.HexDataFormat;
 import cn.hexing.dlms.IHexListener;
 import cn.hexing.dlms.RS232Controller;
+import cn.hexing.dlt645.c645.C645Frame;
 import cn.hexing.dlt645.check.FrameCheckerFilterTypes;
 import cn.hexing.dlt645.comm.CommOpticalSerialPort;
 import cn.hexing.dlt645.model.DayBlockBean;
@@ -38,8 +39,8 @@ import cn.hexing.model.TranXADRAssist;
 
 /**
  * @author caibinglong
- *         date 2018/2/1.
- *         desc desc
+ * date 2018/2/1.
+ * desc desc
  */
 
 public class HexClient645API {
@@ -163,6 +164,15 @@ public class HexClient645API {
                     framePara.CommDeviceType = HexDevice.ZIGBEE;
                     this.baudRate = 9600;
                     break;
+                case HexDevice.METHOD_RF:
+                    iComm = new CommOpticalSerialPort();
+                    cPara.ComName = TextUtils.isEmpty(strComName) ? HexDevice.COMM_NAME_RF2 : strComName;
+                    framePara.CommDeviceType = HexDevice.RF;// RF  Optical
+                    this.baudRate = this.baudRate == 300 ? 4800 : this.baudRate;
+                    if (this.sleepSend <= 0) {
+                        this.sleepSend = 20;
+                    }
+                    break;
                 default:
                     throw new NotImplementedException("通讯 " + commMethod + " 未定义");
             }
@@ -182,6 +192,106 @@ public class HexClient645API {
 
     /**
      * 645 对外api
+     *
+     * @param tranXADRAssists TranXADRAssist
+     */
+    public void action_645(List<TranXADRAssist> tranXADRAssists) throws NotImplementedException {
+
+        if (openSerial()) {
+            int pos = 0;
+
+            for (TranXADRAssist tranXADRAssist : tranXADRAssists) {
+                if (tranXADRAssist.c645Bean == null) {
+                    throw new NotImplementedException("645 config is null");
+
+                }
+                ReceiveModel model = new ReceiveModel();
+                model.maxWaitTime = tranXADRAssist.c645Bean.maxWaitTime;
+                model.sleepTime = tranXADRAssist.c645Bean.waitReceiveTime;
+                switch (tranXADRAssist.actionType) {
+
+                    case HexAction.ACTION_READ:
+
+                        //表  645id
+                        tranXADRAssist = readBy654id(tranXADRAssist, model);
+                        listener.onSuccess(tranXADRAssist, pos);
+
+                        break;
+                    case HexAction.ACTION_WRITE:
+                        //表  645id
+                        tranXADRAssist = writeBy654id(tranXADRAssist, model);
+                        listener.onSuccess(tranXADRAssist, pos);
+                        break;
+                }
+
+                pos++;
+
+            }
+            closeSerial();
+
+        }
+    }
+
+
+    /**
+     * 645 对外HX645api
+     *
+     * @param tranXADRAssists TranXADRAssist
+     */
+    public void action_HX645(List<TranXADRAssist> tranXADRAssists) throws NotImplementedException {
+
+        if (openSerial()) {
+            int pos = 0;
+            boolean issend;
+            boolean ok=false;
+            issend= iComm.sendByt(C645Frame.getChangeChannel(tranXADRAssists.get(0).c645Bean.meterNumberList.get(0)));
+            if (issend) {
+                byte[] receiveByt = iComm.receiveByt(200, 200);
+                if (receiveByt != null && receiveByt.length > 0) {
+
+                    System.out.println("切换通道成功" );
+                    ok= true;
+                    try {
+                        Thread.sleep(tranXADRAssists.get(0).c645Bean.sleepSend);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+            for (TranXADRAssist tranXADRAssist : tranXADRAssists) {
+                if (tranXADRAssist.c645Bean == null) {
+                    throw new NotImplementedException("645 config is null");
+
+                }
+                ReceiveModel model = new ReceiveModel();
+                model.maxWaitTime = tranXADRAssist.c645Bean.maxWaitTime;
+                model.sleepTime = tranXADRAssist.c645Bean.waitReceiveTime;
+                switch (tranXADRAssist.actionType) {
+
+                    case HexAction.ACTION_READ:
+
+                        //表  645id
+                        tranXADRAssist = readByHX654id(tranXADRAssist, model);
+                        listener.onSuccess(tranXADRAssist, pos);
+
+                        break;
+//                    case HexAction.ACTION_WRITE:
+//                        //表  645id
+//                        tranXADRAssist = writeBy654id(tranXADRAssist, model);
+//                        listener.onSuccess(tranXADRAssist, pos);
+//                        break;
+                }
+
+                pos++;
+
+            }
+            closeSerial();
+
+        }
+    }
+
+
+    /**
+     * 645Zigbee 对外api
      *
      * @param tranXADRAssist TranXADRAssist
      */
@@ -437,7 +547,7 @@ public class HexClient645API {
                     meterNo = HexStringUtil.reverse(meterNo); //反序
                     meterSetupBean = new MeterSetupBean();
                     meterSetupBean.meterNo = HexStringUtil.bytesToHexString(meterNo);
-                    meterSetupBean.position = String.valueOf((item[6] & 0xff) +1);
+                    meterSetupBean.position = String.valueOf((item[6] & 0xff) + 1);
                     assist.c645Bean.meterSetupBeanList.add(meterSetupBean);
                 }
             }
@@ -763,6 +873,161 @@ public class HexClient645API {
         assist.errMsg = model.errorMsg;
         assist.recBytes = model.recBytes;
         assist.recStrData = HexStringUtil.bytesToHexString(assist.recBytes);
+
+        return assist;
+    }
+
+    /**
+     * 645id 读取
+     *
+     * @param assist TranXADRAssist 调用参数模型
+     * @param model  接收数据模型
+     * @return TranXADRAssist
+     */
+
+    private TranXADRAssist readBy654id(TranXADRAssist assist, ReceiveModel model) {
+
+
+        StringBuilder builder;
+        System.out.println(TAG + "Read 645Byid Start  ...");
+        int i = 0;
+        String meter = assist.c645Bean.meterNumberList.get(0);
+        System.out.println(TAG + "Read  Value||" + assist.c645Bean.meterNumberList.get(0) + "--" + meter);
+
+        byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
+        byte[] newByte = HexStringUtil.reverse(bytes);
+        GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
+        GlobalCommunicators.Update();
+
+        model.setReadType(assist.c645Bean.getMeterDataType645Id());
+        model = GlobalCommunicators.c645Meter.Read(model, "");
+
+        assist.recBytes = model.recBytes;
+        assist.errMsg = model.errorMsg;
+        assist.aResult = model.isSuccess;
+        String value = "";
+        if (model.isSuccess && model.recBytes.length > 0) {
+            byte[] receiveData = model.recBytes;
+            if (receiveData.length <= 5) {
+                System.out.println("NO DATA");
+            } else {
+                switch (assist.c645Bean.IdFormat) {
+                    case "NNN.NNN":
+                        value = String.format("%02X%02X%02X", receiveData[4] & 0xff, receiveData[3] & 0xff, receiveData[2] & 0xff);
+                        if (!TextUtils.isEmpty(value)) {
+                            builder = new StringBuilder(value);
+                            value = builder.insert(3, ".").toString();
+                        }
+                }
+
+
+            }
+        }
+        assist.c645Bean.value = value;
+
+
+        System.out.println(TAG + "645id  finished");
+
+        return assist;
+    }
+
+
+    /**
+     * HX645id 读取
+     *
+     * @param assist TranXADRAssist 调用参数模型
+     * @param model  接收数据模型
+     * @return TranXADRAssist
+     */
+
+    private TranXADRAssist readByHX654id(TranXADRAssist assist, ReceiveModel model) {
+
+
+        StringBuilder builder;
+        System.out.println(TAG + "Read 645Byid Start  ...");
+        int i = 0;
+        String meter = assist.c645Bean.meterNumberList.get(0);
+        System.out.println(TAG + "Read  Value||" + assist.c645Bean.meterNumberList.get(0) + "--" + meter);
+
+        byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
+        byte[] newByte = HexStringUtil.reverse(bytes);
+        GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
+        GlobalCommunicators.Update();
+
+        model.setReadType(assist.c645Bean.getMeterDataType645Id());
+        model = GlobalCommunicators.cHX645Meter.Read(model, "");
+
+        assist.recBytes = model.recBytes;
+        assist.errMsg = model.errorMsg;
+        assist.aResult = model.isSuccess;
+        String value = "";
+        if (model.isSuccess && model.recBytes.length > 0) {
+            byte[] receiveData = model.recBytes;
+            if (receiveData.length <= 5) {
+                System.out.println("NO DATA");
+            } else {
+                switch (assist.c645Bean.IdFormat) {
+                    case "NNN.NNN":
+                        value = String.format("%02X%02X%02X", receiveData[10] & 0xff, receiveData[9] & 0xff, receiveData[8] & 0xff);
+                        if (!TextUtils.isEmpty(value)) {
+                            builder = new StringBuilder(value);
+                            value = builder.insert(3, ".").toString();
+                        }
+                        break;
+
+                    case "NNNNNN.NN":
+                        value = String.format("%02X%02X%02X%02X", receiveData[11] & 0xff, receiveData[10] & 0xff, receiveData[9] & 0xff, receiveData[8] & 0xff);
+                        if (!TextUtils.isEmpty(value)) {
+                            builder = new StringBuilder(value);
+                            value = builder.insert(6, ".").toString();
+                        }
+                        break;
+
+                    case "NNNN.NN":
+                        value = String.format("%02X%02X%02X", receiveData[10] & 0xff, receiveData[9] & 0xff, receiveData[8] & 0xff);
+                        if (!TextUtils.isEmpty(value)) {
+                            builder = new StringBuilder(value);
+                            value = builder.insert(4, ".").toString();
+                        }
+                        break;
+                }
+
+
+            }
+        }
+        assist.c645Bean.value = value;
+
+
+        System.out.println(TAG + "645id  finished");
+
+        return assist;
+    }
+
+
+    private TranXADRAssist writeBy654id(TranXADRAssist assist, ReceiveModel model) {
+
+
+        StringBuilder builder;
+        System.out.println(TAG + "write 645Byid Start  ...");
+        int i = 0;
+        String meter = assist.c645Bean.meterNumberList.get(0);
+        System.out.println(TAG + "write  Value||" + assist.c645Bean.meterNumberList.get(0) + "--" + meter);
+
+        byte[] bytes = HexStringUtil.hexToByte(HexStringUtil.padLeft(meter, 12, '0'));
+        byte[] newByte = HexStringUtil.reverse(bytes);
+        GlobalCommunicators.c645Address = HexStringUtil.bytesToHexString(newByte);
+        GlobalCommunicators.Update();
+
+        model.setReadType(assist.c645Bean.getMeterDataType645Id());
+        model = GlobalCommunicators.c645Meter.Write(assist.c645Bean.getMeterDataType645Id(), GlobalCommunicators.CollectorPasswordBytes,HexStringUtil.hexToByte(assist.writeData),model);
+
+        assist.recBytes = model.recBytes;
+        assist.errMsg = model.errorMsg;
+        assist.aResult = model.isSuccess;
+
+
+
+        System.out.println(TAG + "645id  finished");
 
         return assist;
     }
@@ -1526,7 +1791,7 @@ public class HexClient645API {
         }
         if (isSuccess) {
             framePara.setDataFrameWaitTime((int) this.dataFrameWaitTime);
-            framePara.SleepT =(int) this.sleepSend;
+            framePara.SleepT = (int) this.sleepSend;
             assist = commServer.sendByte(framePara, iComm, assist);
             if (assist.isCloseSerial) {
                 closeSerial();

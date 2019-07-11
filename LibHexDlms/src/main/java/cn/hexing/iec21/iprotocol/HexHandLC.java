@@ -534,6 +534,8 @@ public class HexHandLC implements IProtocol {
                     break;
                 }
             }
+
+
             while (!isLastFrame) {
                 //未完成 数据块解析开发
                 isLastFrame = true;
@@ -550,11 +552,31 @@ public class HexHandLC implements IProtocol {
                 }
                 Nsend++;
                 paraModel.Nsend = Nsend;
-                receiveByt = commDevice.receiveByt(paraModel.SleepT, paraModel.dataFrameWaitTime);
+                receiveByt = commDevice.receiveByt(paraModel.SleepT, paraModel.dataFrameWaitTime, paraModel.recDataConversion);
                 if (receiveByt != null && receiveByt.length > 0) {
                     System.out.println("数据块接收=" + HexStringUtil.bytesToHexString(receiveByt));
+                    int result1 = -1;
+                    int reLength1 = receiveByt.length;
+                    if (reLength1 > 3) {
+                        result1 = (receiveByt[receiveByt.length - 2] & 0xff);
+                    }
+                    if (result1 == 0x04) {
+                        isLastFrame = false;
+                    } else {
+                        isLastFrame = true;
+                    }
+
+                    for (int i = 0; i < reLength1; i++) {
+                        if ((receiveByt[i] & 0xFF) == 0x02 && (receiveByt[i + 1] & 0xFF) == 0x28) {
+                            for (int m = i + 2; m < reLength1 - 3; m++) {
+                                rtnReceiveByt.add(receiveByt[m]);
+                            }
+                            break;
+                        }
+                    }
                 }
             }
+
         }
         byte[] bytResult = new byte[rtnReceiveByt.size()];
         for (int i = 0; i < bytResult.length; i++) {

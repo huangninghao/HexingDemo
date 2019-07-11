@@ -6,6 +6,9 @@ import cn.hexing.dlt645.FrameParameters;
 import cn.hexing.dlt645.NotImplementedException;
 import cn.hexing.dlt645.SendFrameTypes;
 import cn.hexing.dlt645.iprotocol.IFrame;
+import cn.hexing.model.HXFramePara;
+
+import static cn.hexing.HexStringUtil.padRight;
 
 /**
  * @author caibinglong
@@ -77,7 +80,56 @@ public class C645Frame implements IFrame{
 
         return stringBuilder.toString();
     }
+    public static  byte[] getChangeChannel(String no) {
+        String headData = "7E000508014348";
+        int channel = -1;
+         {
+            String meterNumber = no;
+            int res = 0;
+            for (int i = 0; i < meterNumber.length() / 2; i++) {
+                res += Integer.valueOf(meterNumber.substring(i * 2, 2 + i * 2), 16);
+            }
+            if (res > 0XFF) {
+                res -= 0X100;
+            }
+            String result = padRight(String.valueOf(res), 2, '0');
+            channel = Integer.valueOf(result, 16);
+            channel %= 6;
+            channel++;
+        }
+        String crc;
+        switch (channel) {
+            case 0:
+                crc = "6B";
+                break;
+            case 1:
+                crc = "6A";
+                break;
+            case 2:
+                crc = "69";
+                break;
+            case 3:
+                crc = "68";
+                break;
+            case 4:
+                crc = "67";
+                break;
+            case 5:
+                crc = "66";
+                break;
+            case 6:
+                crc = "65";
+                break;
+            default:
+                crc = "6A";
+                break;
 
+        }
+        headData = headData + padRight(String.valueOf(channel), 2, '0') + crc;
+        byte[] data = HexStringUtil.hexToByte(headData);
+        System.out.println("Channel=" + HexStringUtil.bytesToHexString(data));
+        return data;
+    }
 
     private void FormTransmitDataArea() {
         sendDataArea = sendData;
